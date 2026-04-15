@@ -26,7 +26,6 @@ def _content_payload(merchant_id: str, **overrides):
     payload.update(overrides)
     return payload
 
-
 def test_health_check_returns_ok(client):
     response = client.get("/api/v1/health")
 
@@ -34,19 +33,9 @@ def test_health_check_returns_ok(client):
     assert response.json()["status"] == "ok"
 
 
-def test_content_generate_success_creates_draft(client, merchant_headers):
+def test_content_generate_success_creates_draft(client, merchant_headers, uploaded_asset_factory):
     merchant_id = merchant_headers["X-Test-Merchant-Id"]
-    asset_response = client.post(
-        "/api/v1/assets/upload-init",
-        json={
-            "merchant_id": merchant_id,
-            "filename": "menu-photo.jpg",
-            "content_type": "image/jpeg",
-            "size_bytes": 204800,
-        },
-        headers=merchant_headers,
-    )
-    asset_id = asset_response.json()["asset_id"]
+    asset_id = uploaded_asset_factory(merchant_headers, merchant_id)
     response = client.post(
         "/api/v1/contents/generate",
         json=_content_payload(merchant_id, uploaded_asset_ids=[asset_id]),
@@ -92,19 +81,9 @@ def test_content_generate_rejects_missing_required_field(client, merchant_header
     assert "input_brief" in body["field_errors"]
 
 
-def test_content_detail_approve_and_publish_flow(client, merchant_headers):
+def test_content_detail_approve_and_publish_flow(client, merchant_headers, uploaded_asset_factory):
     merchant_id = merchant_headers["X-Test-Merchant-Id"]
-    asset_response = client.post(
-        "/api/v1/assets/upload-init",
-        json={
-            "merchant_id": merchant_id,
-            "filename": "menu-photo.jpg",
-            "content_type": "image/jpeg",
-            "size_bytes": 204800,
-        },
-        headers=merchant_headers,
-    )
-    asset_id = asset_response.json()["asset_id"]
+    asset_id = uploaded_asset_factory(merchant_headers, merchant_id)
     create_response = client.post(
         "/api/v1/contents/generate",
         json=_content_payload(
@@ -151,24 +130,14 @@ def test_content_detail_approve_and_publish_flow(client, merchant_headers):
         headers=merchant_headers,
     )
     assert publish_response.status_code == 202
-    assert publish_response.json()["status"] == "scheduled"
+    assert publish_response.json()["status"] == "published"
     assert publish_response.json()["image_variant_provider"] == "nano_banana"
     assert publish_response.json()["image_variant_job_id"]
 
 
-def test_content_reject_allows_merchant_on_own_content(client, merchant_headers):
+def test_content_reject_allows_merchant_on_own_content(client, merchant_headers, uploaded_asset_factory):
     merchant_id = merchant_headers["X-Test-Merchant-Id"]
-    asset_response = client.post(
-        "/api/v1/assets/upload-init",
-        json={
-            "merchant_id": merchant_id,
-            "filename": "menu-photo.jpg",
-            "content_type": "image/jpeg",
-            "size_bytes": 204800,
-        },
-        headers=merchant_headers,
-    )
-    asset_id = asset_response.json()["asset_id"]
+    asset_id = uploaded_asset_factory(merchant_headers, merchant_id)
     create_response = client.post(
         "/api/v1/contents/generate",
         json=_content_payload(merchant_id, uploaded_asset_ids=[asset_id]),
@@ -184,6 +153,22 @@ def test_content_reject_allows_merchant_on_own_content(client, merchant_headers)
 
     assert reject_response.status_code == 200
     assert reject_response.json()["status"] == "rejected"
+
+
+def test_content_delete_allows_merchant_for_own_draft(client, merchant_headers, uploaded_asset_factory):
+    merchant_id = merchant_headers["X-Test-Merchant-Id"]
+    asset_id = uploaded_asset_factory(merchant_headers, merchant_id)
+    create_response = client.post(
+        "/api/v1/contents/generate",
+        json=_content_payload(merchant_id, uploaded_asset_ids=[asset_id]),
+        headers=merchant_headers,
+    )
+    content_id = create_response.json()["content_id"]
+
+    delete_response = client.delete(f"/api/v1/contents/{content_id}", headers=merchant_headers)
+
+    assert delete_response.status_code == 200
+    assert delete_response.json()["deleted"] is True
 
 
 def test_content_generate_rejects_image_variant_without_assets(client, merchant_headers):
@@ -293,13 +278,13 @@ def test_monthly_report_generate_and_job_lookup(client, admin_headers):
     body = response.json()
     assert body["report_id"]
     assert body["job_id"]
-    assert body["status"] == "queued"
+    assert body["status"] == "succeeded"
 
     job_response = client.get(f"/api/v1/jobs/{body['job_id']}", headers=admin_headers)
     assert job_response.status_code == 200
     job_body = job_response.json()
     assert job_body["job_id"] == body["job_id"]
-    assert job_body["status"] in {"queued", "running", "succeeded", "failed"}
+    assert job_body["status"] == "succeeded"
 
 
 def test_job_lookup_missing_job_returns_not_found(client, admin_headers):
@@ -333,19 +318,9 @@ def test_merchant_can_access_own_review_endpoint(client, merchant_headers, webho
     assert response.json()["review_id"] == review_id
 
 
-def test_admin_can_list_merchant_summaries(client, admin_headers, merchant_headers):
+def test_admin_can_list_merchant_summaries(client, admin_headers, merchant_headers, uploaded_asset_factory):
     merchant_id = merchant_headers["X-Test-Merchant-Id"]
-    asset_response = client.post(
-        "/api/v1/assets/upload-init",
-        json={
-            "merchant_id": merchant_id,
-            "filename": "menu-photo.jpg",
-            "content_type": "image/jpeg",
-            "size_bytes": 204800,
-        },
-        headers=merchant_headers,
-    )
-    asset_id = asset_response.json()["asset_id"]
+    asset_id = uploaded_asset_factory(merchant_headers, merchant_id)
     client.post(
         "/api/v1/contents/generate",
         json=_content_payload(merchant_id, uploaded_asset_ids=[asset_id]),

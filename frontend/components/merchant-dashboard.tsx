@@ -8,10 +8,14 @@ import {
   approveContent,
   approveReviewReply,
   createContentDraft,
+  deleteContent,
+  fetchAssetBinary,
+  fetchAssetDetail,
   fetchContentDetail,
   fetchReviewDetail,
   generateMonthlyReport,
   initAssetUpload,
+  uploadAssetBinary,
   listContents,
   listJobs,
   listPublishResults,
@@ -23,7 +27,7 @@ import {
 
 import styles from "./merchant-dashboard.module.css";
 
-type ContentStatus = "draft" | "approved" | "scheduled" | "published" | "rejected";
+type ContentStatus = "draft" | "approved" | "scheduled" | "published" | "rejected" | "deleted";
 
 type DraftRecord = {
   contentId: string;
@@ -39,6 +43,13 @@ type RegisteredAsset = {
   filename: string;
   contentType: string;
   sizeBytes: number;
+  status: string;
+  previewUrl?: string | null;
+  localPreviewUrl?: string | null;
+};
+
+type ContentPreviewAsset = Awaited<ReturnType<typeof fetchAssetDetail>> & {
+  objectUrl?: string | null;
 };
 
 type ContentRequest = {
@@ -104,6 +115,7 @@ export function MerchantDashboard() {
   const [drafts, setDrafts] = useState<DraftRecord[]>([]);
   const [selectedContentId, setSelectedContentId] = useState("");
   const [contentDetail, setContentDetail] = useState<Awaited<ReturnType<typeof fetchContentDetail>> | null>(null);
+  const [contentAssets, setContentAssets] = useState<ContentPreviewAsset[]>([]);
   const [contentActionMessage, setContentActionMessage] = useState("생성된 콘텐츠를 선택하면 점주가 직접 승인과 발행을 처리할 수 있습니다.");
   const [pendingContents, setPendingContents] = useState<Awaited<ReturnType<typeof listContents>>["items"]>([]);
   const [selectedReviewId, setSelectedReviewId] = useState("");
@@ -196,12 +208,34 @@ export function MerchantDashboard() {
   async function loadContentDetail(contentId: string) {
     try {
       const detail = await fetchContentDetail(contentId, form.merchantId);
+      const assetDetails = await Promise.all(
+        detail.uploaded_asset_ids.map(async (assetId) => {
+          const asset = await fetchAssetDetail(assetId, form.merchantId);
+          let objectUrl: string | null = null;
+          try {
+            const binary = await fetchAssetBinary(assetId, form.merchantId);
+            objectUrl = URL.createObjectURL(binary);
+          } catch {
+            objectUrl = null;
+          }
+          return { ...asset, objectUrl };
+        }),
+      );
+      setContentAssets((current) => {
+        current.forEach((asset) => {
+          if (asset.objectUrl) {
+            URL.revokeObjectURL(asset.objectUrl);
+          }
+        });
+        return assetDetails;
+      });
       setContentDetail(detail);
       setSelectedContentId(contentId);
       if (typeof window !== "undefined") {
         window.localStorage.setItem("harness.latestContentId", contentId);
       }
     } catch (error) {
+      setContentAssets([]);
       setContentActionMessage(error instanceof Error ? error.message : "콘텐츠 상세를 불러오지 못했습니다.");
     }
   }
@@ -224,18 +258,22 @@ export function MerchantDashboard() {
             contentType: file.type || "image/jpeg",
             sizeBytes: file.size,
           });
+          const upload = await uploadAssetBinary(asset.assetId, file, form.merchantId);
 
           return {
             assetId: asset.assetId,
             filename: file.name,
             contentType: file.type || "image/jpeg",
             sizeBytes: file.size,
+            status: upload.status,
+            previewUrl: upload.previewUrl,
+            localPreviewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
           };
         }),
       );
 
       setAssets((current) => [...current, ...uploaded]);
-      setSubmitMessage(`${uploaded.length}개 자산을 등록했습니다. draft 생성으로 진행할 수 있습니다.`);
+      setSubmitMessage(`${uploaded.length}개 자산 업로드를 완료했습니다. draft 생성으로 진행할 수 있습니다.`);
       await loadOperations();
     } catch (error) {
       const message = error instanceof Error ? error.message : "이미지 자산 등록에 실패했습니다.";
@@ -247,7 +285,13 @@ export function MerchantDashboard() {
   }
 
   function removeAsset(assetId: string) {
-    setAssets((current) => current.filter((asset) => asset.assetId !== assetId));
+    setAssets((current) => {
+      const target = current.find((asset) => asset.assetId === assetId);
+      if (target?.localPreviewUrl) {
+        URL.revokeObjectURL(target.localPreviewUrl);
+      }
+      return current.filter((asset) => asset.assetId !== assetId);
+    });
   }
 
   async function handleSubmit() {
@@ -368,6 +412,45 @@ export function MerchantDashboard() {
       await loadContentDetail(contentDetail.content_id);
     } catch (error) {
       setContentActionMessage(error instanceof Error ? error.message : "콘텐츠 발행에 실패했습니다.");
+    }
+  }
+
+  async function handleDeleteContent(contentId?: string) {
+    const targetContentId = contentId ?? contentDetail?.content_id;
+    if (!targetContentId) {
+      setContentActionMessage("먼저 콘텐츠를 선택해 주세요.");
+      return;
+    }
+
+    const targetStatus =
+      contentId && contentDetail?.content_id !== contentId
+        ? pendingContents.find((item) => item.content_id === contentId)?.status
+        : contentDetail?.status;
+
+    if (targetStatus && targetStatus !== "draft") {
+      setContentActionMessage("draft 상태의 초안만 삭제할 수 있습니다.");
+      return;
+    }
+
+    if (typeof window !== "undefined" && !window.confirm("이 초안을 삭제할까요? 삭제 후 복구할 수 없습니다.")) {
+      return;
+    }
+
+    try {
+      const response = await deleteContent(targetContentId, form.merchantId);
+      setContentActionMessage(response.message);
+      setDrafts((current) => current.filter((item) => item.contentId !== targetContentId));
+      if (selectedContentId === targetContentId) {
+        setSelectedContentId("");
+        setContentDetail(null);
+        setContentAssets([]);
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem("harness.latestContentId");
+        }
+      }
+      await loadOperations();
+    } catch (error) {
+      setContentActionMessage(error instanceof Error ? error.message : "콘텐츠 삭제에 실패했습니다.");
     }
   }
 
@@ -608,8 +691,12 @@ export function MerchantDashboard() {
                         <div>
                           <strong className={styles.assetName}>{asset.filename}</strong>
                           <p className={styles.assetMeta}>
-                            {asset.assetId} · {asset.contentType} · {formatBytes(asset.sizeBytes)}
+                            {asset.assetId} · {asset.contentType} · {formatBytes(asset.sizeBytes)} · {asset.status}
                           </p>
+                          {asset.localPreviewUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={asset.localPreviewUrl} alt={asset.filename} className={styles.assetPreview} />
+                          ) : null}
                         </div>
                         <button type="button" onClick={() => removeAsset(asset.assetId)} className={styles.ghostButton}>
                           제거
@@ -690,12 +777,38 @@ export function MerchantDashboard() {
                   <p className={styles.assetTitle}>{contentDetail.title}</p>
                   <p className={styles.cardDescription}>{contentDetail.body}</p>
                   <p className={styles.assetMeta}>hashtags: {contentDetail.hashtags.join(" ")}</p>
+                  {contentAssets.length > 0 ? (
+                    <div className={styles.contentPreviewGrid}>
+                      {contentAssets.map((asset) => (
+                        <div key={asset.asset_id} className={styles.contentPreviewCard}>
+                          {asset.objectUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={asset.objectUrl} alt={asset.filename} className={styles.contentPreviewImage} />
+                          ) : (
+                            <div className={styles.contentPreviewFallback}>NO PREVIEW</div>
+                          )}
+                          <strong className={styles.assetName}>{asset.filename}</strong>
+                          <p className={styles.assetMeta}>
+                            {asset.asset_id} · {asset.status}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                   <div className={styles.actions}>
                     <button type="button" onClick={handleApproveContent} className={styles.ghostButton}>
                       점주 승인
                     </button>
                     <button type="button" onClick={handleRejectContent} className={styles.ghostButton}>
                       점주 반려
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteContent()}
+                      className={styles.dangerButton}
+                      disabled={contentDetail.status !== "draft"}
+                    >
+                      초안 삭제
                     </button>
                     <button type="button" onClick={handlePublishContent} className={styles.primaryButton}>
                       점주 발행
@@ -793,6 +906,14 @@ export function MerchantDashboard() {
                       </strong>
                       <p className={styles.cardDescription}>{draft.message}</p>
                       <p className={styles.assetMeta}>{draft.contentId}</p>
+                      <div className={styles.actions}>
+                        <button type="button" onClick={() => void loadContentDetail(draft.contentId)} className={styles.ghostButton}>
+                          보기
+                        </button>
+                        <button type="button" onClick={() => void handleDeleteContent(draft.contentId)} className={styles.dangerButton}>
+                          삭제
+                        </button>
+                      </div>
                     </div>
                   ))
                 ) : (

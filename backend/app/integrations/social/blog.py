@@ -13,7 +13,7 @@ class BlogPublishAdapter:
             "adapter_name": self.adapter_name,
             "external_post_id": external_post_id,
             "external_url": f"https://blog.example.com/posts/{slug}",
-            "status": "queued",
+            "status": "published",
         }
 
 

@@ -12,7 +12,7 @@
 - 개발용 Compose는 `frontend/`, `backend/`를 컨테이너에 bind mount 하므로, 코드 수정 후 매번 `--build`를 다시 할 필요가 없다.
 
 현재 기준으로 아직 미완료인 항목은 다음과 같다.
-- 실제 파일 업로드 UI
+- object storage / signed URL 연동
 - 실제 `Nano Banana` 외부 API 연동
 - 실제 플랫폼 publish adapter 연동
 
@@ -25,7 +25,7 @@
 ## 1. 저장소 받기
 ```bash
 git clone <repo-url>
-cd harness_framework
+cd marketing_AI
 ```
 
 ## 2. 권장 실행: Docker Compose
@@ -115,9 +115,12 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api/v1 npm run dev -- --hostname 
 - 관리자 감사/관측/점포 요약 화면
 - 구조화 필드 입력
 - 로그인 폼과 test1~test4 계정 진입
+- 로컬/데모 기준 실제 이미지 파일 업로드
 - `이미지 변형 사용` 토글
 - `nano_banana` provider 선택
 - draft 생성 요청
+- 스텁 adapter 기준 즉시 `published` 처리되는 발행 흐름
+- 즉시 `succeeded` 처리되는 월간 리포트 요청
 - 점주별 예시 게시 카드와 예시 이미지
 
 ## 5. 현재 구현 제한

@@ -36,15 +36,17 @@ services:
         "python scripts/init_mock_db.py && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload",
       ]
     environment:
-      APP_NAME: Harness Framework API
+      APP_NAME: Marketing AI Demo API
       APP_VERSION: 0.1.0
       APP_ENV: docker
       API_PREFIX: /api/v1
+      PUBLIC_API_BASE_URL: http://127.0.0.1:8000/api/v1
       BACKEND_CORS_ORIGINS: http://127.0.0.1:3000,http://localhost:3000
       DATABASE_URL: postgresql+psycopg://harness:harness@postgres:5432/harness
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
+      ASSET_STORAGE_DIR: /tmp/marketing_ai_uploads
       WEBHOOK_SECRET: dev-webhook-secret
       NANO_BANANA_API_KEY: replace-me
       BLOG_API_BASE_URL: https://blog.example.com/api
@@ -68,15 +70,17 @@ services:
       dockerfile: infra/docker/backend.Dockerfile
     command: ["python", "-m", "celery", "-A", "app.workers.celery_app", "worker", "--loglevel=info"]
     environment:
-      APP_NAME: Harness Framework API
+      APP_NAME: Marketing AI Demo API
       APP_VERSION: 0.1.0
       APP_ENV: docker
       API_PREFIX: /api/v1
+      PUBLIC_API_BASE_URL: http://127.0.0.1:8000/api/v1
       BACKEND_CORS_ORIGINS: http://127.0.0.1:3000,http://localhost:3000
       DATABASE_URL: postgresql+psycopg://harness:harness@postgres:5432/harness
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
+      ASSET_STORAGE_DIR: /tmp/marketing_ai_uploads
       WEBHOOK_SECRET: dev-webhook-secret
       NANO_BANANA_API_KEY: replace-me
       BLOG_API_BASE_URL: https://blog.example.com/api

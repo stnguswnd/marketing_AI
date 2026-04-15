@@ -36,6 +36,7 @@ class ContentStatus(str, Enum):
     SCHEDULED = "scheduled"
     PUBLISHED = "published"
     REJECTED = "rejected"
+    DELETED = "deleted"
 
 
 class ReviewSensitivity(str, Enum):

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from app.core.auth import RequestContext, get_request_context
 from app.schemas.content import (
     ContentApproveRequest,
+    ContentDeleteResponse,
     ContentDetailResponse,
     ContentListResponse,
     ContentGenerateRequest,
@@ -71,3 +72,11 @@ def publish_content(
     context: RequestContext = Depends(get_request_context),
 ) -> ContentPublishResponse:
     return content_service.publish(content_id, payload, context)
+
+
+@router.delete("/{content_id}", response_model=ContentDeleteResponse)
+def delete_content(
+    content_id: str,
+    context: RequestContext = Depends(get_request_context),
+) -> ContentDeleteResponse:
+    return content_service.delete(content_id, context)

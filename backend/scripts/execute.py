@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Harness Step Executor — phase 내 step을 순차 실행하고 자가 교정한다.
+Phase Step Executor — phase 내 step을 순차 실행하고 자가 교정한다.
 
 Usage:
     python3 scripts/execute.py <phase-dir> [--push]
@@ -51,7 +51,7 @@ def progress_indicator(label: str):
 
 
 class StepExecutor:
-    """Phase 디렉토리 안의 step들을 순차 실행하는 하네스."""
+    """Phase 디렉토리 안의 step들을 순차 실행하는 실행기."""
 
     MAX_RETRIES = 3
     FEAT_MSG = "feat({phase}): step {num} — {name}"
@@ -260,7 +260,7 @@ class StepExecutor:
 
     def _print_header(self):
         print(f"\n{'='*60}")
-        print(f"  Harness Step Executor")
+        print(f"  Phase Step Executor")
         print(f"  Phase: {self._phase_name} | Steps: {self._total}")
         if self._auto_push:
             print(f"  Auto-push: enabled")
@@ -405,7 +405,7 @@ class StepExecutor:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Harness Step Executor")
+    parser = argparse.ArgumentParser(description="Phase Step Executor")
     parser.add_argument("phase_dir", help="Phase directory name (e.g. 0-mvp)")
     parser.add_argument("--push", action="store_true", help="Push branch after completion")
     args = parser.parse_args()

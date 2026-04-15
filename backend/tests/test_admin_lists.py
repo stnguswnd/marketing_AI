@@ -12,22 +12,10 @@ def _merchant_headers(base_headers: dict[str, str], merchant_id: str) -> dict[st
         "X-Test-User-Id": f"user_{merchant_id}",
     }
 
-
-def test_admin_list_endpoints_and_publish_results(client, merchant_headers, admin_headers):
+def test_admin_list_endpoints_and_publish_results(client, merchant_headers, admin_headers, uploaded_asset_factory):
     merchant_id = f"m_{uuid4().hex[:8]}"
     headers = _merchant_headers(merchant_headers, merchant_id)
-
-    asset_response = client.post(
-        "/api/v1/assets/upload-init",
-        json={
-            "merchant_id": merchant_id,
-            "filename": "menu-photo.jpg",
-            "content_type": "image/jpeg",
-            "size_bytes": 204800,
-        },
-        headers=headers,
-    )
-    asset_id = asset_response.json()["asset_id"]
+    asset_id = uploaded_asset_factory(headers, merchant_id)
 
     asset_list = client.get("/api/v1/assets", headers=headers)
     assert asset_list.status_code == 200
@@ -83,6 +71,7 @@ def test_admin_list_endpoints_and_publish_results(client, merchant_headers, admi
     assert detail_payload["latest_publish_result_id"] == publish_result_id
     assert publish_result_id in detail_payload["publish_result_ids"]
     assert detail_payload["image_variant_job_id"] == variant_job_id
+    assert detail_payload["status"] == "published"
     assert detail_payload["variant_asset_ids"]
 
     publish_results = client.get("/api/v1/publish-results", headers=admin_headers)
@@ -92,6 +81,7 @@ def test_admin_list_endpoints_and_publish_results(client, merchant_headers, admi
     publish_result_detail = client.get(f"/api/v1/publish-results/{publish_result_id}", headers=admin_headers)
     assert publish_result_detail.status_code == 200
     assert publish_result_detail.json()["adapter_name"] == "blog_stub"
+    assert publish_result_detail.json()["status"] == "published"
     assert publish_result_detail.json()["external_url"]
 
     variant_asset_id = detail_payload["variant_asset_ids"][0]

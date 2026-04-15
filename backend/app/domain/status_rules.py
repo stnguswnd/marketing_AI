@@ -5,11 +5,12 @@ from app.schemas.common import ContentStatus, ReviewStatus
 
 
 CONTENT_TRANSITIONS: dict[ContentStatus, set[ContentStatus]] = {
-    ContentStatus.DRAFT: {ContentStatus.APPROVED, ContentStatus.REJECTED},
+    ContentStatus.DRAFT: {ContentStatus.APPROVED, ContentStatus.REJECTED, ContentStatus.DELETED},
     ContentStatus.APPROVED: {ContentStatus.SCHEDULED},
     ContentStatus.SCHEDULED: {ContentStatus.PUBLISHED},
     ContentStatus.PUBLISHED: set(),
     ContentStatus.REJECTED: set(),
+    ContentStatus.DELETED: set(),
 }
 
 REVIEW_TRANSITIONS: dict[ReviewStatus, set[ReviewStatus]] = {

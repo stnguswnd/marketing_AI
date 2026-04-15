@@ -31,19 +31,20 @@ class ReportService:
         report_id = f"report_{uuid4().hex[:8]}"
         job_id = f"job_report_{uuid4().hex[:8]}"
         created_at = now_utc()
+        report_status = "succeeded"
         db_repository.create_report({
             "report_id": report_id,
             "scope_type": payload.scope_type,
             "scope_id": payload.scope_id,
             "year": payload.year,
             "month": payload.month,
-            "status": "queued",
+            "status": report_status,
             "created_at": created_at,
         })
         db_repository.create_job({
             "job_id": job_id,
             "job_type": "monthly_report_generate",
-            "status": "queued",
+            "status": report_status,
             "resource_type": "report",
             "resource_id": report_id,
             "created_at": created_at,
@@ -56,7 +57,7 @@ class ReportService:
             context=context,
             metadata={"scope_type": payload.scope_type, "scope_id": payload.scope_id, "year": payload.year, "month": payload.month},
         )
-        return MonthlyReportGenerateResponse(report_id=report_id, job_id=job_id, status="queued")
+        return MonthlyReportGenerateResponse(report_id=report_id, job_id=job_id, status=report_status)
 
     def list(
         self,

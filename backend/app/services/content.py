@@ -12,6 +12,7 @@ from app.repositories.database import db_repository
 from app.schemas.common import ContentStatus, CountryCode, PlatformType
 from app.schemas.content import (
     ContentApproveRequest,
+    ContentDeleteResponse,
     ContentDetailResponse,
     ContentListItemResponse,
     ContentListResponse,
@@ -31,6 +32,10 @@ def now_utc() -> datetime:
 
 
 class ContentService:
+    def _ensure_not_deleted(self, content: dict) -> None:
+        if content["status"] == ContentStatus.DELETED:
+            raise AppError(status_code=404, error_code="CONTENT_NOT_FOUND", message="콘텐츠를 찾을 수 없습니다.")
+
     def _validate_asset_ownership(self, merchant_id: str, asset_ids: list[str]) -> None:
         for asset_id in asset_ids:
             asset = db_repository.get_asset(asset_id)
@@ -39,6 +44,12 @@ class ContentService:
                     status_code=422,
                     error_code="INVALID_ASSET_REFERENCE",
                     message="유효하지 않은 asset 참조입니다.",
+                )
+            if asset["status"] != "uploaded":
+                raise AppError(
+                    status_code=422,
+                    error_code="ASSET_NOT_UPLOADED",
+                    message="실제 업로드가 완료된 asset만 사용할 수 있습니다.",
                 )
 
     def generate(self, payload: ContentGenerateRequest, context: RequestContext) -> ContentGenerateResponse:
@@ -137,6 +148,7 @@ class ContentService:
         content = db_repository.get_content(content_id)
         if not content:
             raise AppError(status_code=404, error_code="CONTENT_NOT_FOUND", message="콘텐츠를 찾을 수 없습니다.")
+        self._ensure_not_deleted(content)
         ensure_merchant_scope(context, content["merchant_id"], error_code="FORBIDDEN_CONTENT_ACCESS", message="콘텐츠 접근 권한이 없습니다.")
         return ContentDetailResponse(**content)
 
@@ -153,6 +165,8 @@ class ContentService:
 
         items = []
         for content in db_repository.list_contents():
+            if content["status"] == ContentStatus.DELETED:
+                continue
             if merchant_id and content["merchant_id"] != merchant_id:
                 continue
             if status and content["status"] != status:
@@ -175,6 +189,7 @@ class ContentService:
         content = db_repository.get_content(content_id)
         if not content:
             raise AppError(status_code=404, error_code="CONTENT_NOT_FOUND", message="콘텐츠를 찾을 수 없습니다.")
+        self._ensure_not_deleted(content)
         ensure_merchant_scope(context, content["merchant_id"], error_code="FORBIDDEN_APPROVAL", message="승인 권한이 없습니다.")
         ensure_content_transition(content["status"], ContentStatus.APPROVED, "승인")
 
@@ -206,6 +221,7 @@ class ContentService:
         content = db_repository.get_content(content_id)
         if not content:
             raise AppError(status_code=404, error_code="CONTENT_NOT_FOUND", message="콘텐츠를 찾을 수 없습니다.")
+        self._ensure_not_deleted(content)
         ensure_merchant_scope(context, content["merchant_id"], error_code="FORBIDDEN_REJECTION", message="반려 권한이 없습니다.")
         ensure_content_transition(content["status"], ContentStatus.REJECTED, "반려")
 
@@ -235,6 +251,31 @@ class ContentService:
         ensure_roles(context, "merchant", "operator", "admin", error_code="FORBIDDEN_PUBLISH", message="게시 권한이 없습니다.")
         ensure_authenticated_actor(context)
         return publish_service.publish_content(content_id, payload, context)
+
+    def delete(self, content_id: str, context: RequestContext) -> ContentDeleteResponse:
+        ensure_roles(context, "merchant", "operator", "admin", error_code="FORBIDDEN_DELETE", message="삭제 권한이 없습니다.")
+        ensure_authenticated_actor(context)
+        content = db_repository.get_content(content_id)
+        if not content:
+            raise AppError(status_code=404, error_code="CONTENT_NOT_FOUND", message="콘텐츠를 찾을 수 없습니다.")
+        self._ensure_not_deleted(content)
+        ensure_merchant_scope(context, content["merchant_id"], error_code="FORBIDDEN_DELETE", message="삭제 권한이 없습니다.")
+        ensure_content_transition(content["status"], ContentStatus.DELETED, "삭제")
+        deleted_at = now_utc()
+        db_repository.update_content(content_id, status=ContentStatus.DELETED, updated_at=deleted_at)
+        audit_service.record(
+            action="content.delete",
+            resource_type="content",
+            resource_id=content_id,
+            context=context,
+            merchant_id=content["merchant_id"],
+            metadata={"previous_status": content["status"], "next_status": ContentStatus.DELETED.value},
+        )
+        return ContentDeleteResponse(
+            content_id=content_id,
+            deleted=True,
+            message="콘텐츠 초안을 삭제했습니다.",
+        )
 
 
 content_service = ContentService()

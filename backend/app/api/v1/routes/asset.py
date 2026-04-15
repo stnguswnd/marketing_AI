@@ -1,9 +1,16 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi.responses import FileResponse
 
 from app.core.auth import RequestContext, get_request_context
-from app.schemas.asset import AssetDetailResponse, AssetListResponse, AssetUploadInitRequest, AssetUploadInitResponse
+from app.schemas.asset import (
+    AssetDetailResponse,
+    AssetListResponse,
+    AssetUploadBinaryResponse,
+    AssetUploadInitRequest,
+    AssetUploadInitResponse,
+)
 from app.services.asset import asset_service
 
 
@@ -16,6 +23,23 @@ def init_asset_upload(
     context: RequestContext = Depends(get_request_context),
 ) -> AssetUploadInitResponse:
     return asset_service.init_upload(payload, context)
+
+
+@router.post("/{asset_id}/binary", response_model=AssetUploadBinaryResponse)
+def upload_asset_binary(
+    asset_id: str,
+    file: UploadFile = File(...),
+    context: RequestContext = Depends(get_request_context),
+) -> AssetUploadBinaryResponse:
+    return asset_service.upload_binary(asset_id, file, context)
+
+
+@router.get("/{asset_id}/binary")
+def get_asset_binary(
+    asset_id: str,
+    context: RequestContext = Depends(get_request_context),
+) -> FileResponse:
+    return asset_service.get_binary(asset_id, context)
 
 
 @router.get("/{asset_id}", response_model=AssetDetailResponse)

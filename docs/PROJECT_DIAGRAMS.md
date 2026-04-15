@@ -109,7 +109,7 @@ flowchart TB
 ## Graphviz DOT
 
 ```dot
-digraph HarnessFramework {
+digraph MarketingAIDemo {
   rankdir=LR;
   node [shape=box, style=rounded];
 

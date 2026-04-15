@@ -1,21 +1,36 @@
-# 프로젝트: {프로젝트명}
+# 프로젝트: 소상공인 글로벌 마케팅 자동화 플랫폼
+
+## 현재 성격
+- 이 저장소는 점주/관리자 운영 흐름을 검증하는 프로토타입이자 데모 하네스다.
+- `frontend/`와 `backend/`가 분리된 멀티서비스 구조를 사용한다.
+- 실제 외부 연동 일부는 아직 스텁이며, 문서와 코드 모두 이 상태를 숨기지 않는다.
 
 ## 기술 스택
-- {프레임워크 (예: Next.js 15)}
-- {언어 (예: TypeScript strict mode)}
-- {스타일링 (예: Tailwind CSS)}
+- 프론트엔드: Next.js App Router, React 18, TypeScript
+- 백엔드: FastAPI, Pydantic v2, SQLAlchemy
+- 워크플로우: LangGraph
+- 비동기/인프라: Celery, Redis, PostgreSQL, Docker Compose
 
 ## 아키텍처 규칙
-- CRITICAL: {절대 지켜야 할 규칙 1 (예: 모든 API 로직은 app/api/ 라우트 핸들러에서만 처리)}
-- CRITICAL: {절대 지켜야 할 규칙 2 (예: 클라이언트 컴포넌트에서 직접 외부 API를 호출하지 말 것)}
-- {일반 규칙 (예: 컴포넌트는 components/ 폴더에, 타입은 types/ 폴더에 분리)}
+- CRITICAL: 외부 요청 진입은 `backend/app/api/v1/routes/` 라우터를 통해서만 처리한다.
+- CRITICAL: 비즈니스 로직은 라우터가 아니라 `backend/app/services/` 에 둔다.
+- CRITICAL: DB 접근은 `backend/app/repositories/` 를 통해서만 수행한다.
+- CRITICAL: 외부 연동은 `backend/app/integrations/` 어댑터를 통해서만 호출한다.
+- CRITICAL: 프론트는 `frontend/lib/api.ts` 를 통해 백엔드 API를 호출한다.
+- 점주/관리자 UI 문구는 데모 범위를 넘는 실제 연동처럼 과장하지 않는다.
+- 스텁 구현은 유지할 수 있지만, 문서와 UI에서 스텁임을 숨기지 않는다.
 
 ## 개발 프로세스
-- CRITICAL: 새 기능 구현 시 반드시 테스트를 먼저 작성하고, 테스트가 통과하는 구현을 작성할 것 (TDD)
-- 커밋 메시지는 conventional commits 형식을 따를 것 (feat:, fix:, docs:, refactor:)
+- 새 API나 상태 전이를 추가하면 백엔드 테스트를 함께 추가한다.
+- 사용자 변경이 섞인 워크트리일 수 있으므로, 관련 없는 파일은 건드리지 않는다.
+- 문서 수정 시 구현 완료/미완료 상태를 코드 기준으로 맞춘다.
 
-## 명령어
-npm run dev      # 개발 서버
-npm run build    # 프로덕션 빌드
-npm run lint     # ESLint
-npm run test     # 테스트
+## 자주 쓰는 명령어
+```bash
+docker compose -f infra/docker-compose.yml up --build
+cd backend && python3 -m pip install -e '.[dev]'
+cd backend && python3 -m pytest
+cd frontend && npm install
+cd frontend && npm run lint
+cd frontend && npm run build
+```

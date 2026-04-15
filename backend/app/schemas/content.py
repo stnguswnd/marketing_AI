@@ -99,6 +99,12 @@ class ContentPublishResponse(BaseModel):
     publish_result_id: Optional[str] = None
 
 
+class ContentDeleteResponse(BaseModel):
+    content_id: str
+    deleted: bool
+    message: str
+
+
 class ContentListItemResponse(BaseModel):
     content_id: str
     merchant_id: str

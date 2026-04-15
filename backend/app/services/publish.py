@@ -34,6 +34,8 @@ class PublishService:
         content = db_repository.get_content(content_id)
         if not content:
             raise AppError(status_code=404, error_code="CONTENT_NOT_FOUND", message="콘텐츠를 찾을 수 없습니다.")
+        if content["status"] == ContentStatus.DELETED:
+            raise AppError(status_code=404, error_code="CONTENT_NOT_FOUND", message="콘텐츠를 찾을 수 없습니다.")
         ensure_merchant_scope(context, content["merchant_id"], error_code="FORBIDDEN_PUBLISH", message="게시 권한이 없습니다.")
         if content["status"] != ContentStatus.APPROVED:
             raise AppError(
@@ -44,6 +46,7 @@ class PublishService:
         ensure_content_transition(content["status"], ContentStatus.SCHEDULED, "게시 요청")
 
         publish_at = payload.publish_at or now_utc()
+        immediate_publish = publish_at <= now_utc()
         publish_job_id = f"job_publish_{uuid4().hex[:8]}"
         publish_result_id = f"publish_{uuid4().hex[:8]}"
         source_asset_ids = payload.source_asset_ids or content["uploaded_asset_ids"]
@@ -53,7 +56,7 @@ class PublishService:
             "adapter_name": "internal_stub",
             "external_post_id": None,
             "external_url": None,
-            "status": "queued",
+            "status": "published" if immediate_publish else "queued",
         }
 
         if payload.apply_image_variant:
@@ -87,7 +90,7 @@ class PublishService:
                 db_repository.create_job({
                     "job_id": image_variant_job_id,
                     "job_type": "image_variant_generate",
-                    "status": "queued",
+                    "status": "succeeded" if immediate_publish else "queued",
                     "resource_type": "content",
                     "resource_id": content_id,
                     "created_at": created_at,
@@ -105,9 +108,11 @@ class PublishService:
             )
 
         updated_at = now_utc()
+        next_content_status = ContentStatus.PUBLISHED if immediate_publish else ContentStatus.SCHEDULED
+        publish_job_status = "succeeded" if immediate_publish else "queued"
         db_repository.update_content(
             content_id,
-            status=ContentStatus.SCHEDULED,
+            status=next_content_status,
             updated_at=updated_at,
             publish_job_id=publish_job_id,
             image_variant_job_id=image_variant_job_id,
@@ -118,7 +123,7 @@ class PublishService:
         db_repository.create_job({
             "job_id": publish_job_id,
             "job_type": "content_publish",
-            "status": "queued",
+            "status": publish_job_status,
             "resource_type": "content",
             "resource_id": content_id,
             "created_at": updated_at,
@@ -157,7 +162,7 @@ class PublishService:
         )
         return ContentPublishResponse(
             content_id=content_id,
-            status=ContentStatus.SCHEDULED,
+            status=next_content_status,
             job_id=publish_job_id,
             publish_at=publish_at,
             image_variant_job_id=image_variant_job_id,

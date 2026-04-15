@@ -17,19 +17,9 @@ def test_request_id_header_and_observability_logs(client, admin_headers):
     assert "/api/v1/health" in summary.json()["path_counts"]
 
 
-def test_audit_logs_capture_sensitive_actions(client, merchant_headers, admin_headers):
+def test_audit_logs_capture_sensitive_actions(client, merchant_headers, admin_headers, uploaded_asset_factory):
     merchant_id = merchant_headers["X-Test-Merchant-Id"]
-    asset_response = client.post(
-        "/api/v1/assets/upload-init",
-        json={
-            "merchant_id": merchant_id,
-            "filename": "menu-photo.jpg",
-            "content_type": "image/jpeg",
-            "size_bytes": 204800,
-        },
-        headers=merchant_headers,
-    )
-    asset_id = asset_response.json()["asset_id"]
+    asset_id = uploaded_asset_factory(merchant_headers, merchant_id)
 
     generate_response = client.post(
         "/api/v1/contents/generate",

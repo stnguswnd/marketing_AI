@@ -33,6 +33,13 @@ class AssetDetailResponse(BaseModel):
     updated_at: datetime
 
 
+class AssetUploadBinaryResponse(BaseModel):
+    asset_id: str
+    status: str
+    preview_url: Optional[str] = None
+    updated_at: datetime
+
+
 class AssetListItemResponse(BaseModel):
     asset_id: str
     merchant_id: str

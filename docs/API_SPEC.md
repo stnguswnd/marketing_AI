@@ -198,12 +198,39 @@
 - `403 FORBIDDEN_CONTENT_ACCESS`
 - `404 CONTENT_NOT_FOUND`
 
-## 3. 콘텐츠 승인
+## 3. 콘텐츠 초안 삭제
+
+### `DELETE /contents/{content_id}`
+점주가 아직 승인/반려/발행 전인 `draft` 초안을 삭제한다.
+
+### 권한
+- `merchant`
+- `operator`
+- `admin`
+
+### Success Response `200`
+```json
+{
+  "content_id": "content_123",
+  "deleted": true,
+  "message": "콘텐츠 초안을 삭제했습니다."
+}
+```
+
+### 실패 케이스
+- `403 FORBIDDEN_DELETE`
+- `404 CONTENT_NOT_FOUND`
+- `409 INVALID_CONTENT_STATUS_TRANSITION`
+
+- 현재 구현은 hard delete 대신 `deleted` 상태로 전환하는 soft delete 방식이며, 일반 콘텐츠 조회/목록에서는 숨긴다.
+
+## 4. 콘텐츠 승인
 
 ### `POST /contents/{content_id}/approve`
 초안을 승인 상태로 전환한다.
 
 ### 권한
+- `merchant`
 - `admin`
 - `operator`
 
@@ -230,12 +257,13 @@
 - `404 CONTENT_NOT_FOUND`
 - `409 INVALID_CONTENT_STATUS`
 
-## 4. 콘텐츠 반려
+## 5. 콘텐츠 반려
 
 ### `POST /contents/{content_id}/reject`
 초안을 반려하고 사유를 기록한다.
 
 ### 권한
+- `merchant`
 - `admin`
 - `operator`
 
@@ -262,12 +290,13 @@
 - `404 CONTENT_NOT_FOUND`
 - `409 INVALID_CONTENT_STATUS`
 
-## 5. 게시 요청
+## 6. 게시 요청
 
 ### `POST /contents/{content_id}/publish`
 승인된 콘텐츠에 대해 게시 작업을 요청한다.
 
 ### 권한
+- `merchant`
 - `admin`
 - `operator`
 
@@ -291,13 +320,15 @@
 ```json
 {
   "content_id": "content_123",
-  "status": "scheduled",
+  "status": "published",
   "job_id": "job_publish_123",
   "publish_at": "2026-04-16T09:00:00Z",
   "image_variant_job_id": "job_image_123",
   "image_variant_provider": "nano_banana"
 }
 ```
+
+- 현재 데모/하네스 구현에서는 실제 외부 채널 연동 대신 스텁 어댑터를 사용하므로, 즉시 발행 가능한 요청은 같은 응답 안에서 `published` 상태를 반환할 수 있다.
 
 ### 실패 케이스
 - `403 FORBIDDEN_PUBLISH`
@@ -330,10 +361,40 @@
 ```json
 {
   "asset_id": "asset_123",
-  "upload_url": "https://upload.example.com/asset_123",
+  "upload_url": "http://127.0.0.1:8000/api/v1/assets/asset_123/binary",
   "asset_type": "source"
 }
 ```
+
+- init 단계에서는 asset row를 `pending_upload` 상태로 만들고, 실제 파일 바이너리는 다음 단계에서 업로드한다.
+
+### `POST /assets/{asset_id}/binary`
+`multipart/form-data` 로 실제 이미지 파일을 업로드한다.
+
+### 권한
+- `merchant`
+- `operator`
+- `admin`
+
+### Form Data
+- `file`: image/jpeg | image/png | image/webp
+
+### Success Response `200`
+```json
+{
+  "asset_id": "asset_123",
+  "status": "uploaded",
+  "preview_url": "http://127.0.0.1:8000/api/v1/assets/asset_123/binary",
+  "updated_at": "2026-04-15T14:05:00Z"
+}
+```
+
+### 실패 케이스
+- `400 EMPTY_ASSET_FILE`
+- `403 FORBIDDEN_ASSET_ACCESS`
+- `404 ASSET_NOT_FOUND`
+- `413 ASSET_TOO_LARGE`
+- `415 UNSUPPORTED_ASSET_TYPE`
 
 ### 실패 케이스
 - `400 VALIDATION_ERROR`
@@ -474,9 +535,11 @@
 {
   "report_id": "report_123",
   "job_id": "job_report_123",
-  "status": "queued"
+  "status": "succeeded"
 }
 ```
+
+- 현재 데모/하네스 구현에서는 리포트 생성 작업을 worker 비동기 완료 대신 즉시 완료 상태로 기록한다.
 
 ### 실패 케이스
 - `403 FORBIDDEN_REPORT_ACCESS`

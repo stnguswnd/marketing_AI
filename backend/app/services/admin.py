@@ -39,6 +39,8 @@ class AdminService:
             return summaries[merchant_id]
 
         for content in db_repository.list_contents():
+            if content["status"] == ContentStatus.DELETED:
+                continue
             summary = ensure_summary(content["merchant_id"])
             summary["content_count"] = int(summary["content_count"]) + 1
             if content["status"] == ContentStatus.DRAFT:

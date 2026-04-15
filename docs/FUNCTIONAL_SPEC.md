@@ -36,6 +36,7 @@ PRD, Architecture, API, Phase 로그에 흩어진 내용을 실제 구현 기준
 - 본인 점포 기준으로 콘텐츠 요청을 생성한다.
 - 이미지 자산을 등록한다.
 - 생성된 draft 상태 결과를 확인한다.
+- 생성된 draft가 불필요하면 삭제한다.
 - 본인 점포 콘텐츠를 승인, 반려, 발행 요청할 수 있다.
 - 리뷰 답글 승인과 리포트 생성을 직접 수행할 수 있다.
 
@@ -128,11 +129,12 @@ PRD, Architecture, API, Phase 로그에 흩어진 내용을 실제 구현 기준
 #### 처리 방식
 1. 점주가 파일을 선택한다.
 2. 프론트가 `upload-init`으로 자산 메타데이터를 등록한다.
-3. 자산 ID를 포함해 콘텐츠 생성 요청을 보낸다.
-4. 백엔드는 입력 스키마를 검증한다.
-5. 콘텐츠 그래프를 실행해 title/body/hashtags를 생성한다.
-6. 결과를 `draft` 상태로 PostgreSQL에 저장한다.
-7. content_generate job과 audit log를 DB에 생성한다.
+3. 프론트가 `POST /api/v1/assets/{asset_id}/binary` 로 실제 파일을 업로드한다.
+4. 자산 ID를 포함해 콘텐츠 생성 요청을 보낸다.
+5. 백엔드는 입력 스키마를 검증한다.
+6. 콘텐츠 그래프를 실행해 title/body/hashtags를 생성한다.
+7. 결과를 `draft` 상태로 PostgreSQL에 저장한다.
+8. content_generate job과 audit log를 DB에 생성한다.
 
 #### 출력
 - `content_id`
@@ -142,8 +144,8 @@ PRD, Architecture, API, Phase 로그에 흩어진 내용을 실제 구현 기준
 
 #### 현재 상태
 - 구현 완료
-- 실제 파일 업로드 스토리지는 아직 없음
-- 현재는 메타데이터 등록 기반 스캐폴드
+- 로컬/데모 기준 실제 multipart 업로드 구현 완료
+- object storage와 signed URL은 아직 없음
 
 ---
 
@@ -234,6 +236,7 @@ PRD, Architecture, API, Phase 로그에 흩어진 내용을 실제 구현 기준
 
 #### 엔드포인트
 - `POST /api/v1/assets/upload-init`
+- `POST /api/v1/assets/{asset_id}/binary`
 - `GET /api/v1/assets`
 - `GET /api/v1/assets/{asset_id}`
 
@@ -252,7 +255,7 @@ PRD, Architecture, API, Phase 로그에 흩어진 내용을 실제 구현 기준
 - created_at / updated_at
 
 #### 현재 상태
-- 자산 메타데이터 관리 구현 완료
+- 자산 메타데이터 관리와 로컬 업로드 구현 완료
 - object storage와 signed URL은 아직 없음
 
 ---
@@ -470,10 +473,8 @@ PRD, Architecture, API, Phase 로그에 흩어진 내용을 실제 구현 기준
 - SQLAlchemy/Celery/Redis/PostgreSQL 전환용 파일 구조
 
 ### 스텁 또는 미완료
-- 실제 PostgreSQL 영속 저장
-- SQLAlchemy repository 실제 전환
-- Celery 실제 실행 경로 연결
-- Redis broker/result backend 실제 연결
+- Celery task가 실제 후속 상태 전이를 수행하는 비동기 실행 경로
+- Redis broker/result backend를 활용한 실작업 큐 소비
 - object storage / signed URL
 - 실제 Nano Banana API
 - 실제 블로그/소셜 인증과 발행
@@ -489,7 +490,7 @@ PRD, Architecture, API, Phase 로그에 흩어진 내용을 실제 구현 기준
 - 프론트와 백엔드는 역할 기준으로 화면과 권한이 분리되어야 한다.
 - 테스트 없이 기능을 머지하지 않는다.
 - request_id, job_id, publish_result_id, asset_id는 추적 가능해야 한다.
-- 운영 전환 시 메모리 저장소를 영속 저장소로 교체해야 한다.
+- 운영 전환 시 데모용 스텁 연동을 실제 외부 연동으로 교체해야 한다.
 
 ---
 
@@ -519,8 +520,8 @@ PRD, Architecture, API, Phase 로그에 흩어진 내용을 실제 구현 기준
 
 ## 11. 참조 문서
 
-- [PRD.md](/Users/guswnd0432389/Desktop/harness_framework/docs/PRD.md)
-- [ARCHITECTURE.md](/Users/guswnd0432389/Desktop/harness_framework/docs/ARCHITECTURE.md)
-- [API_SPEC.md](/Users/guswnd0432389/Desktop/harness_framework/docs/API_SPEC.md)
-- [PROJECT_DIAGRAMS.md](/Users/guswnd0432389/Desktop/harness_framework/docs/PROJECT_DIAGRAMS.md)
-- [phases/index.json](/Users/guswnd0432389/Desktop/harness_framework/phases/index.json)
+- [PRD.md](/Users/guswnd0432389/Desktop/marketing_AI/docs/PRD.md)
+- [ARCHITECTURE.md](/Users/guswnd0432389/Desktop/marketing_AI/docs/ARCHITECTURE.md)
+- [API_SPEC.md](/Users/guswnd0432389/Desktop/marketing_AI/docs/API_SPEC.md)
+- [PROJECT_DIAGRAMS.md](/Users/guswnd0432389/Desktop/marketing_AI/docs/PROJECT_DIAGRAMS.md)
+- [phases/index.json](/Users/guswnd0432389/Desktop/marketing_AI/phases/index.json)

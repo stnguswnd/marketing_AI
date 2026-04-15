@@ -35,16 +35,16 @@ def test_monthly_report_and_job_lookup(client, admin_headers):
     )
     assert response.status_code == 202
     payload = response.json()
-    assert payload["status"] == "queued"
+    assert payload["status"] == "succeeded"
     job_id = payload["job_id"]
 
     job = client.get("/api/v1/jobs/%s" % job_id, headers=admin_headers)
     assert job.status_code == 200
     assert job.json()["job_id"] == job_id
+    assert job.json()["status"] == "succeeded"
 
 
 def test_job_not_found(client, admin_headers):
     response = client.get("/api/v1/jobs/job_missing", headers=admin_headers)
     assert response.status_code == 404
     assert response.json()["error_code"] == "JOB_NOT_FOUND"
-

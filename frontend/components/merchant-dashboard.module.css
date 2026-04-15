@@ -246,6 +246,55 @@
   color: #101828;
 }
 
+.assetPreview {
+  display: block;
+  width: 88px;
+  height: 88px;
+  margin-top: 10px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 1px solid #d8e0ea;
+}
+
+.contentPreviewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.contentPreviewCard {
+  border: 1px solid #d8e0ea;
+  border-radius: 18px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.contentPreviewImage,
+.contentPreviewFallback {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  margin-bottom: 10px;
+}
+
+.contentPreviewImage {
+  display: block;
+  object-fit: cover;
+  border: 1px solid #d8e0ea;
+}
+
+.contentPreviewFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef2f6;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
 .assetCard,
 .draftCard,
 .queueCard {
@@ -286,7 +335,8 @@
 }
 
 .ghostButton,
-.primaryButton {
+.primaryButton,
+.dangerButton {
   border: 0;
   border-radius: 12px;
   font-size: 14px;
@@ -307,7 +357,15 @@
   color: #ffffff;
 }
 
-.primaryButton:disabled {
+.dangerButton {
+  padding: 10px 12px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #b42318;
+}
+
+.primaryButton:disabled,
+.dangerButton:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }

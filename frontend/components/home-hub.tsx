@@ -69,7 +69,7 @@ export function HomeHub() {
     <main className={styles.page}>
       <section className={styles.shell}>
         <header className={styles.hero}>
-          <p className={styles.eyebrow}>Harness Frontend</p>
+          <p className={styles.eyebrow}>Marketing AI Demo</p>
           <h1 className={styles.title}>test1~test4 계정으로 진입하는 작업 허브</h1>
           <p className={styles.description}>
             PostgreSQL 목업 DB에 들어간 관리자 1명과 점주 3명의 계정으로 바로 로그인하고, 역할별 화면을

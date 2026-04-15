@@ -53,9 +53,16 @@ export type InitAssetUploadResponse = {
   assetType: string;
 };
 
+export type UploadAssetBinaryResponse = {
+  assetId: string;
+  status: string;
+  previewUrl?: string | null;
+  updatedAt: string;
+};
+
 export type CreateContentDraftResponse = {
   contentId: string;
-  status: "draft" | "approved" | "scheduled" | "published" | "rejected";
+  status: "draft" | "approved" | "scheduled" | "published" | "rejected" | "deleted";
   message: string;
 };
 
@@ -65,7 +72,7 @@ export type ContentDetail = {
   target_country: string;
   platform: string;
   goal: string;
-  status: "draft" | "approved" | "scheduled" | "published" | "rejected";
+  status: "draft" | "approved" | "scheduled" | "published" | "rejected" | "deleted";
   title: string;
   body: string;
   hashtags: string[];
@@ -90,7 +97,7 @@ export type ContentListItem = {
   target_country: string;
   platform: string;
   goal: string;
-  status: "draft" | "approved" | "scheduled" | "published" | "rejected";
+  status: "draft" | "approved" | "scheduled" | "published" | "rejected" | "deleted";
   apply_image_variant: boolean;
   image_variant_provider: "none" | "nano_banana";
   variant_asset_ids: string[];
@@ -118,7 +125,7 @@ export type ContentPublishRequest = {
 
 export type ContentPublishResponse = {
   content_id: string;
-  status: "scheduled" | "published" | "draft" | "approved" | "rejected";
+  status: "scheduled" | "published" | "draft" | "approved" | "rejected" | "deleted";
   job_id: string;
   publish_at?: string | null;
   image_variant_job_id?: string | null;
@@ -209,6 +216,7 @@ export type AssetDetail = {
   provider?: string | null;
   generated_by_job_id?: string | null;
   source_asset_ids: string[];
+  preview_url?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -382,6 +390,48 @@ export async function initAssetUpload(
   };
 }
 
+export async function uploadAssetBinary(
+  assetId: string,
+  file: File,
+  merchantId = "m_123",
+): Promise<UploadAssetBinaryResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const headers = actorHeaders("merchant", merchantId);
+  const response = await fetch(`${resolveApiBaseUrl()}/assets/${assetId}/binary`, {
+    method: "POST",
+    headers: {
+      "X-Test-Role": headers["X-Test-Role"],
+      "X-Test-User-Id": headers["X-Test-User-Id"],
+      ...(headers["X-Test-Merchant-Id"] ? { "X-Test-Merchant-Id": headers["X-Test-Merchant-Id"] } : {}),
+      "X-Role": headers["X-Test-Role"],
+      "X-Actor-Id": headers["X-Test-User-Id"],
+      ...(headers["X-Test-Merchant-Id"] ? { "X-Merchant-Id": headers["X-Test-Merchant-Id"] } : {}),
+    },
+    body: formData,
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(body?.message ?? "이미지 파일 업로드에 실패했습니다.");
+  }
+
+  const body = (await response.json()) as {
+    asset_id: string;
+    status: string;
+    preview_url?: string | null;
+    updated_at: string;
+  };
+
+  return {
+    assetId: body.asset_id,
+    status: body.status,
+    previewUrl: body.preview_url,
+    updatedAt: body.updated_at,
+  };
+}
+
 export async function createContentDraft(
   payload: CreateContentDraftRequest,
 ): Promise<CreateContentDraftResponse> {
@@ -528,6 +578,21 @@ export async function publishContent(
       cache: "no-store",
     },
     "콘텐츠 발행 요청에 실패했습니다.",
+  );
+}
+
+export async function deleteContent(
+  contentId: string,
+  merchantId = "m_123",
+): Promise<{ content_id: string; deleted: boolean; message: string }> {
+  return requestJson(
+    `${resolveApiBaseUrl()}/contents/${contentId}`,
+    {
+      method: "DELETE",
+      headers: actorHeaders("merchant", merchantId),
+      cache: "no-store",
+    },
+    "콘텐츠 삭제를 완료하지 못했습니다.",
   );
 }
 
@@ -684,6 +749,20 @@ export async function fetchAssetDetail(assetId: string, merchantId = "m_123"): P
     },
     "자산 상세를 불러오지 못했습니다.",
   );
+}
+
+export async function fetchAssetBinary(assetId: string, merchantId = "m_123"): Promise<Blob> {
+  const response = await fetch(`${resolveApiBaseUrl()}/assets/${assetId}/binary`, {
+    method: "GET",
+    headers: actorHeaders("merchant", merchantId),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, "자산 미리보기를 불러오지 못했습니다."));
+  }
+
+  return response.blob();
 }
 
 export async function listPublishResults(merchantId = "m_123"): Promise<{ items: PublishResultListItem[] }> {

@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Harness Frontend",
-  description: "Structured marketing automation dashboard",
+  title: "Marketing AI Demo",
+  description: "Merchant and admin demo for structured marketing automation",
 };
 
 export default function RootLayout({
