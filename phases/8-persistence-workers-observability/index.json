@@ -1,0 +1,24 @@
+{
+  "project": "소상공인 글로벌 마케팅 자동화 플랫폼",
+  "phase": 8,
+  "slug": "persistence-workers-observability",
+  "status": "in_progress",
+  "goal": "임시 저장소를 운영형 저장소와 비동기 실행 구조로 교체하고 관측성을 추가한다.",
+  "done": [
+    "request_id 기반 request tracing middleware 추가",
+    "request log 저장소와 observability list/summary API 추가",
+    "민감 액션용 audit log 저장소와 list API 추가",
+    "관리자 화면에서 observability/audit 조회 UI 연결",
+    "운영 전환용 settings, worker, infra docker-compose 스캐폴드 추가"
+  ],
+  "remaining": [
+    "PostgreSQL repository 구현",
+    "SQLAlchemy 모델과 migration",
+    "Celery worker와 job execution 연결",
+    "Redis queue/cache 도입",
+    "로그/메트릭/실패 알림을 외부 observability stack으로 연결"
+  ],
+  "exit_criteria": [
+    "상태가 DB에 영속화되고 장시간 작업이 worker에서 실행된다."
+  ]
+}

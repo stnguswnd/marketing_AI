@@ -1,0 +1,93 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: harness
+      POSTGRES_USER: harness
+      POSTGRES_PASSWORD: harness
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U harness -d harness"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+    environment:
+      APP_NAME: Harness Framework API
+      APP_VERSION: 0.1.0
+      APP_ENV: docker
+      API_PREFIX: /api/v1
+      BACKEND_CORS_ORIGINS: http://127.0.0.1:3000,http://localhost:3000
+      DATABASE_URL: postgresql+psycopg://harness:harness@postgres:5432/harness
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      WEBHOOK_SECRET: dev-webhook-secret
+      NANO_BANANA_API_KEY: replace-me
+      BLOG_API_BASE_URL: https://blog.example.com/api
+      BLOG_API_TOKEN: replace-me
+      OBSERVABILITY_SLOW_REQUEST_MS: 1500
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+    command: ["python", "-m", "celery", "-A", "app.workers.celery_app", "worker", "--loglevel=info"]
+    environment:
+      APP_NAME: Harness Framework API
+      APP_VERSION: 0.1.0
+      APP_ENV: docker
+      API_PREFIX: /api/v1
+      BACKEND_CORS_ORIGINS: http://127.0.0.1:3000,http://localhost:3000
+      DATABASE_URL: postgresql+psycopg://harness:harness@postgres:5432/harness
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      WEBHOOK_SECRET: dev-webhook-secret
+      NANO_BANANA_API_KEY: replace-me
+      BLOG_API_BASE_URL: https://blog.example.com/api
+      BLOG_API_TOKEN: replace-me
+      OBSERVABILITY_SLOW_REQUEST_MS: 1500
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: infra/docker/frontend.Dockerfile
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://backend:8000/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

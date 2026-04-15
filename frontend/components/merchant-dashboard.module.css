@@ -1,0 +1,359 @@
+.page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(30, 120, 255, 0.12), transparent 24%),
+    linear-gradient(180deg, #f4f7fb 0%, #edf3f8 100%);
+  color: #101828;
+}
+
+.shell {
+  width: min(1200px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 32px 0 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.hero,
+.panel,
+.workflowCard,
+.assetCard,
+.draftCard,
+.queueCard,
+.exampleCard {
+  background: #ffffff;
+  border: 1px solid #d8e0ea;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.05);
+}
+
+.hero {
+  border-radius: 32px;
+  padding: 30px;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.heroCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.eyebrow,
+.cardLabel,
+.fieldLabel,
+.fieldHint {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #5c6b7d;
+}
+
+.fieldHint {
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-weight: 500;
+}
+
+.heroTitle {
+  margin: 0;
+  font-size: clamp(2.1rem, 2vw + 1.4rem, 3.3rem);
+  line-height: 1.04;
+  letter-spacing: -0.05em;
+}
+
+.heroDescription,
+.cardDescription,
+.notice,
+.assetMeta,
+.emptyState,
+.variantDescription,
+.variantHint,
+.summaryGrid {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #425466;
+}
+
+.heroActions {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.secondaryLink,
+.helperBadge,
+.statusBadge,
+.assetCount {
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.secondaryLink {
+  border: 1px solid #cfd8e3;
+  background: #ffffff;
+}
+
+.helperBadge {
+  background: #edf4ff;
+  color: #175cd3;
+}
+
+.statusBadge {
+  background: #e8f7ef;
+  color: #18794e;
+}
+
+.assetCount {
+  background: #f3f4f6;
+  color: #344054;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 24px;
+}
+
+.mainColumn,
+.sideColumn,
+.draftList,
+.assetList,
+.queueList {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.panel {
+  border-radius: 28px;
+  padding: 24px;
+}
+
+.panelHeader,
+.assetHeader,
+.draftRow,
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.panelTitle {
+  margin: 8px 0 0;
+  font-size: 24px;
+  letter-spacing: -0.03em;
+}
+
+.workflowGrid,
+.formGrid,
+.summaryGrid {
+  display: grid;
+  gap: 16px;
+}
+
+.workflowGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.workflowCard {
+  border-radius: 22px;
+  padding: 18px;
+  background: #f8fafc;
+}
+
+.stepToken {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #0f1728;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.workflowTitle {
+  display: block;
+  margin-top: 14px;
+  font-size: 15px;
+  color: #101828;
+}
+
+.formGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fieldWide {
+  grid-column: 1 / -1;
+}
+
+.input,
+.textarea,
+.fileInput {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid #d0d8e2;
+  background: #ffffff;
+  padding: 14px 16px;
+  color: #425466;
+  outline: none;
+}
+
+.input:focus,
+.textarea:focus,
+.fileInput:focus {
+  border-color: #1565c0;
+  box-shadow: 0 0 0 4px rgba(21, 101, 192, 0.12);
+}
+
+.textarea {
+  resize: vertical;
+}
+
+.assetPanel,
+.notice,
+.operationPanel {
+  margin-top: 20px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid #d8e0ea;
+  background: #f8fafc;
+}
+
+.assetTitle,
+.draftTitle,
+.assetName {
+  margin: 8px 0 0;
+  font-size: 16px;
+  color: #101828;
+}
+
+.assetCard,
+.draftCard,
+.queueCard {
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.exampleCard {
+  border-radius: 20px;
+  overflow: hidden;
+  text-decoration: none;
+}
+
+.assetCard,
+.queueCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.queueCard {
+  width: 100%;
+  border: 1px solid #d0d8e2;
+  cursor: pointer;
+  text-align: left;
+}
+
+.exampleImage {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: block;
+}
+
+.exampleBody {
+  padding: 16px;
+}
+
+.ghostButton,
+.primaryButton {
+  border: 0;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ghostButton {
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1px solid #d0d8e2;
+  color: #344054;
+}
+
+.primaryButton {
+  padding: 12px 18px;
+  background: #111111;
+  color: #ffffff;
+}
+
+.primaryButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.variantToggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.variantToggle input {
+  margin-top: 4px;
+}
+
+.variantToggle strong {
+  font-size: 14px;
+  color: #101828;
+}
+
+.variantHint {
+  margin: 14px 0 0;
+}
+
+.summaryGrid {
+  margin-top: 14px;
+  grid-template-columns: 1fr;
+}
+
+.draftTime {
+  font-size: 12px;
+  color: #667085;
+}
+
+@media (max-width: 960px) {
+  .layout,
+  .workflowGrid,
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    flex-direction: column;
+  }
+
+  .heroActions {
+    flex-wrap: wrap;
+  }
+}

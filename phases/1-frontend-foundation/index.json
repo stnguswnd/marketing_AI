@@ -1,0 +1,32 @@
+{
+  "project": "소상공인 글로벌 마케팅 자동화 플랫폼",
+  "phase": 1,
+  "slug": "frontend-foundation",
+  "status": "completed",
+  "steps": [
+    {
+      "step": 0,
+      "name": "next-workspace-setup",
+      "status": "completed",
+      "summary": "frontend/ 아래 Next.js App Router workspace와 기본 설정 파일을 추가했다."
+    },
+    {
+      "step": 1,
+      "name": "dashboard-shell",
+      "status": "completed",
+      "summary": "점주 입력과 관리자 큐를 한 화면에서 보여주는 dashboard shell과 콘텐츠 생성 모달을 구현했다."
+    },
+    {
+      "step": 2,
+      "name": "api-client",
+      "status": "completed",
+      "summary": "모달 필드를 FastAPI content generate API payload로 매핑하는 프론트 API 클라이언트를 추가했다."
+    },
+    {
+      "step": 3,
+      "name": "verification-log",
+      "status": "completed",
+      "summary": "frontend 의존성 설치 후 next lint와 next build를 모두 통과했다."
+    }
+  ]
+}

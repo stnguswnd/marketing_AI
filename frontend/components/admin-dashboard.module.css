@@ -1,0 +1,340 @@
+.page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top right, rgba(15, 98, 254, 0.12), transparent 24%),
+    linear-gradient(180deg, #f5f7fb 0%, #eef2f8 100%);
+  color: #0f1728;
+}
+
+.shell {
+  width: min(1120px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 40px 0 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.hero,
+.card,
+.panel,
+.detailCard {
+  background: #ffffff;
+  border: 1px solid #d8e0ea;
+  border-radius: 28px;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.05);
+}
+
+.hero {
+  padding: 28px;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.eyebrow,
+.cardLabel,
+.fieldLabel {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #5c6b7d;
+}
+
+.title {
+  margin: 12px 0 0;
+  font-size: clamp(2rem, 3vw, 3rem);
+  letter-spacing: -0.04em;
+}
+
+.description,
+.cardDescription,
+.helperText,
+.metaLine {
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #425466;
+}
+
+.actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.linkButton,
+.badge,
+.primaryButton,
+.secondaryButton {
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.linkButton {
+  background: #ffffff;
+  border-color: #cfd8e3;
+}
+
+.badge {
+  background: #eaf2ff;
+  color: #175cd3;
+}
+
+.queueGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.card {
+  padding: 22px;
+}
+
+.count {
+  display: block;
+  margin-top: 14px;
+  font-size: 34px;
+  letter-spacing: -0.04em;
+}
+
+.panel {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.panelHeader,
+.activityRow,
+.lookupRow,
+.actionRow,
+.inlineHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.panelTitle {
+  margin: 8px 0 0;
+  font-size: 24px;
+  letter-spacing: -0.03em;
+}
+
+.lookupRow {
+  align-items: stretch;
+}
+
+.lookupRow .input {
+  flex: 1;
+}
+
+.input,
+.textarea,
+.select {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid #d0d8e2;
+  background: #ffffff;
+  padding: 14px 16px;
+  color: #425466;
+  outline: none;
+}
+
+.input:focus,
+.textarea:focus,
+.select:focus {
+  border-color: #1565c0;
+  box-shadow: 0 0 0 4px rgba(21, 101, 192, 0.12);
+}
+
+.textarea {
+  resize: vertical;
+}
+
+.primaryButton {
+  background: #111111;
+  color: #ffffff;
+}
+
+.secondaryButton {
+  background: #ffffff;
+  color: #1f2937;
+  border-color: #cfd8e3;
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.detailCard {
+  padding: 18px;
+  background: #f8fafc;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 16px;
+  font-size: 13px;
+  color: #344054;
+}
+
+.detailTitle {
+  margin: 14px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.summaryCard {
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid #dbe3ec;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fieldWide {
+  grid-column: 1 / -1;
+}
+
+.switchRow {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: #344054;
+}
+
+.activityList {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.activityCard {
+  padding: 18px;
+  border-radius: 20px;
+  background: #f8fafc;
+  border: 1px solid #dbe3ec;
+}
+
+.channel {
+  margin: 12px 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f5cbf;
+}
+
+.inlineSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 20px;
+  background: #f8fafc;
+  border: 1px solid #dbe3ec;
+}
+
+.listStack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.queueItem,
+.queueItemStatic {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.8fr) minmax(0, 0.8fr);
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid #d0d8e2;
+  background: #ffffff;
+  text-align: left;
+  font-size: 13px;
+  color: #344054;
+}
+
+.queueItem {
+  cursor: pointer;
+}
+
+.queueItemStatic {
+  cursor: default;
+}
+
+.observabilityGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 960px) {
+  .hero {
+    flex-direction: column;
+  }
+
+  .queueGrid,
+  .activityList,
+  .detailGrid,
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .lookupRow,
+  .actionRow,
+  .inlineHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .queueItem,
+  .queueItemStatic {
+    grid-template-columns: 1fr;
+  }
+
+  .summaryGrid,
+  .observabilityGrid {
+    grid-template-columns: 1fr;
+  }
+}

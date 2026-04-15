@@ -1,0 +1,22 @@
+{
+  "project": "소상공인 글로벌 마케팅 자동화 플랫폼",
+  "phase": 6,
+  "slug": "image-variant-pipeline",
+  "status": "in_progress",
+  "goal": "업로드 원본 이미지를 기반으로 발행용 variant 이미지를 생성하는 파이프라인을 구현한다.",
+  "done": [
+    "nano_banana 스텁 어댑터",
+    "publish 시 variant job 생성 스캐폴드",
+    "프론트 variant 옵션 UI",
+    "variant asset detail/list API와 job 연결 정보 노출"
+  ],
+  "remaining": [
+    "실제 Nano Banana API 연동",
+    "실패/재시도/timeout 정책",
+    "variant preview와 승인 흐름",
+    "비용 및 사용량 추적"
+  ],
+  "exit_criteria": [
+    "원본 이미지를 기반으로 실제 variant가 생성되고 발행 전 선택 가능하다."
+  ]
+}

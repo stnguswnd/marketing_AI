@@ -1,0 +1,49 @@
+{
+  "phases": [
+    {
+      "dir": "0-foundation",
+      "status": "completed",
+      "completed_at": "2026-04-15T19:30:00+0900"
+    },
+    {
+      "dir": "1-frontend-foundation",
+      "status": "completed",
+      "completed_at": "2026-04-15T19:30:00+0900"
+    },
+    {
+      "dir": "2-backend-core-api",
+      "status": "completed",
+      "completed_at": "2026-04-15T20:05:00+0900"
+    },
+    {
+      "dir": "3-merchant-ui-flow",
+      "status": "completed",
+      "completed_at": "2026-04-15T22:10:00+0900"
+    },
+    {
+      "dir": "4-admin-ops-flow",
+      "status": "completed",
+      "completed_at": "2026-04-15T20:45:00+0900"
+    },
+    {
+      "dir": "5-asset-media-pipeline",
+      "status": "in_progress"
+    },
+    {
+      "dir": "6-image-variant-pipeline",
+      "status": "in_progress"
+    },
+    {
+      "dir": "7-publish-integrations",
+      "status": "in_progress"
+    },
+    {
+      "dir": "8-persistence-workers-observability",
+      "status": "in_progress"
+    },
+    {
+      "dir": "9-auth-audit-release",
+      "status": "in_progress"
+    }
+  ]
+}

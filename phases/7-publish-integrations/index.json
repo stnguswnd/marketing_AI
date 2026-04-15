@@ -1,0 +1,21 @@
+{
+  "project": "소상공인 글로벌 마케팅 자동화 플랫폼",
+  "phase": 7,
+  "slug": "publish-integrations",
+  "status": "in_progress",
+  "goal": "내부 publish 요청을 실제 외부 블로그/소셜 채널 발행으로 연결한다.",
+  "done": [
+    "publish service 분리",
+    "blog publish adapter 스텁 구현",
+    "publish result 저장 구조 추가",
+    "publish result list/detail API 노출"
+  ],
+  "remaining": [
+    "소셜 channel adapter 구현",
+    "플랫폼별 인증과 payload 매핑",
+    "성공/실패 결과 저장 및 재시도"
+  ],
+  "exit_criteria": [
+    "승인된 콘텐츠가 실제 외부 채널에 발행된다."
+  ]
+}

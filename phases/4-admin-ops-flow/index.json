@@ -1,0 +1,18 @@
+{
+  "project": "소상공인 글로벌 마케팅 자동화 플랫폼",
+  "phase": 4,
+  "slug": "admin-ops-flow",
+  "status": "completed",
+  "goal": "관리자가 등록된 점주와 플랫폼 상태를 관리하는 운영 화면을 구현한다.",
+  "done": [
+    "admin 라우트 그룹 분리",
+    "점포별 콘텐츠/리뷰/자산/리포트 수를 보여주는 merchant summary API 추가",
+    "관리자 화면을 merchant summary, audit log, observability 위주로 재구성",
+    "점주 실무 액션을 관리자 화면에서 제거하고 점주 화면으로 이동",
+    "최근 요청 추적과 감사 로그를 운영자용 모니터링 패널로 유지"
+  ],
+  "remaining": [],
+  "exit_criteria": [
+    "관리자가 UI에서 등록 점포 현황과 플랫폼 운영 상태를 모니터링할 수 있다."
+  ]
+}

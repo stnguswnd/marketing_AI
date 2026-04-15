@@ -1,0 +1,22 @@
+{
+  "project": "소상공인 글로벌 마케팅 자동화 플랫폼",
+  "phase": 5,
+  "slug": "asset-media-pipeline",
+  "status": "in_progress",
+  "goal": "이미지 업로드와 자산 상태 관리를 실제 운영 가능한 미디어 파이프라인으로 전환한다.",
+  "done": [
+    "upload-init API 스캐폴드",
+    "asset id 기반 콘텐츠 연결",
+    "이미지 variant 관련 필드 정의",
+    "asset detail/list API와 generated variant 메타데이터 노출"
+  ],
+  "remaining": [
+    "object storage 연동",
+    "signed upload URL",
+    "asset metadata/state 저장",
+    "asset preview와 gallery UI"
+  ],
+  "exit_criteria": [
+    "사용자가 실제 이미지를 업로드하고 자산 상태를 추적할 수 있다."
+  ]
+}

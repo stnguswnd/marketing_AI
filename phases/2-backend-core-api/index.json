@@ -1,0 +1,22 @@
+{
+  "project": "소상공인 글로벌 마케팅 자동화 플랫폼",
+  "phase": 2,
+  "slug": "backend-core-api",
+  "status": "completed",
+  "goal": "문서에 정의된 MVP API를 실제 서비스 규칙과 상태 전이 기준으로 고정한다.",
+  "done": [
+    "content, asset, review, report, job 라우트 스캐폴드 구현",
+    "요청/응답 스키마와 in-memory 저장소 연결",
+    "기본 happy path 및 주요 실패 케이스 테스트 작성",
+    "asset detail 조회 contract 추가",
+    "content publish 로직을 별도 publish service로 분리",
+    "콘텐츠/리뷰 상태 전이 규칙을 공통 domain 규칙으로 중앙화"
+  ],
+  "remaining": [
+    "실제 외부 발행 결과 저장 구조는 Phase 7에서 adapter와 함께 확장"
+  ],
+  "exit_criteria": [
+    "MVP API가 문서 스펙과 동작이 일치한다.",
+    "상태 전이와 권한 실패 케이스가 테스트로 고정된다."
+  ]
+}

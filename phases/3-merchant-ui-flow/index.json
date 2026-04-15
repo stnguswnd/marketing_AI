@@ -1,0 +1,25 @@
+{
+  "project": "소상공인 글로벌 마케팅 자동화 플랫폼",
+  "phase": 3,
+  "slug": "merchant-ui-flow",
+  "status": "completed",
+  "goal": "점주가 콘텐츠 생성부터 승인, 발행, 리뷰 대응, 리포트 요청까지 UI에서 수행할 수 있게 만든다.",
+  "done": [
+    "콘텐츠 생성 모달 구현",
+    "generate API 연결",
+    "이미지 변형 옵션 UI 추가",
+    "merchant/admin 라우트 분리",
+    "파일 선택 기반 asset upload-init UI 연결",
+    "점주 화면에서 최근 draft 결과를 확인하는 패널 추가",
+    "점주 화면에서 콘텐츠 approve/reject/publish 액션 처리",
+    "점주 화면에서 민감 리뷰 approve-reply 액션 처리",
+    "점주 화면에서 월간 리포트 생성과 최근 job/report/result 조회"
+  ],
+  "remaining": [
+    "폼 step 분리와 필드 검증 UI",
+    "실제 파일 업로드와 object storage 연동"
+  ],
+  "exit_criteria": [
+    "점주가 UI에서 콘텐츠 요청 생성부터 승인/발행/리뷰 대응까지 직접 수행할 수 있다."
+  ]
+}

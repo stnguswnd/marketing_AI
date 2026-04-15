@@ -1,0 +1,23 @@
+{
+  "project": "소상공인 글로벌 마케팅 자동화 플랫폼",
+  "phase": 9,
+  "slug": "auth-audit-release",
+  "status": "in_progress",
+  "goal": "운영 배포를 위한 인증, 감사, 릴리스 기준을 마무리한다.",
+  "done": [
+    "권한 체크를 core permission helper로 일부 중앙화",
+    "감사 로그와 request trace 조회 API 추가",
+    "민감 액션에 audit log 기록 추가",
+    "release checklist 초안 작성",
+    "환경변수/운영 설정 스캐폴드 추가"
+  ],
+  "remaining": [
+    "실제 인증/권한 계층 도입",
+    "감사 로그와 민감 액션 추적 대상을 더 확대",
+    "환경변수/시크릿 정리",
+    "배포 체크리스트와 release 기준 문서화"
+  ],
+  "exit_criteria": [
+    "운영 배포 전 필수 보안과 감사 기준이 충족된다."
+  ]
+}
