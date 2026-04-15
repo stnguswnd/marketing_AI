@@ -5,7 +5,7 @@ from uuid import uuid4
 from app.core.auth import RequestContext
 from app.core.errors import AppError
 from app.core.permissions import ensure_authenticated_actor, ensure_merchant_scope, ensure_roles
-from app.repositories.memory import repository
+from app.repositories.database import db_repository
 from app.schemas.asset import AssetDetailResponse, AssetListItemResponse, AssetListResponse, AssetUploadInitRequest, AssetUploadInitResponse
 from app.services.audit import audit_service
 
@@ -28,7 +28,7 @@ class AssetService:
 
         asset_id = f"asset_{uuid4().hex[:8]}"
         created_at = now_utc()
-        repository.assets[asset_id] = {
+        db_repository.create_asset({
             "asset_id": asset_id,
             "merchant_id": payload.merchant_id,
             "filename": payload.filename,
@@ -39,9 +39,10 @@ class AssetService:
             "provider": None,
             "generated_by_job_id": None,
             "source_asset_ids": [],
+            "preview_url": None,
             "created_at": created_at,
             "updated_at": created_at,
-        }
+        })
         audit_service.record(
             action="asset.upload_init",
             resource_type="asset",
@@ -59,7 +60,7 @@ class AssetService:
     def get(self, asset_id: str, context: RequestContext) -> AssetDetailResponse:
         ensure_roles(context, "merchant", "operator", "admin", error_code="FORBIDDEN_ASSET_ACCESS", message="자산 접근 권한이 없습니다.")
 
-        asset = repository.assets.get(asset_id)
+        asset = db_repository.get_asset(asset_id)
         if not asset:
             raise AppError(status_code=404, error_code="ASSET_NOT_FOUND", message="자산을 찾을 수 없습니다.")
 
@@ -79,7 +80,7 @@ class AssetService:
             merchant_id = context.merchant_id
 
         items = []
-        for asset in repository.assets.values():
+        for asset in db_repository.list_assets():
             if merchant_id and asset["merchant_id"] != merchant_id:
                 continue
             if asset_type and asset["asset_type"] != asset_type:

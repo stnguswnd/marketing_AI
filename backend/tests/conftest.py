@@ -1,12 +1,31 @@
+import os
+import importlib
+
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import create_app
-
-
 @pytest.fixture
 def app():
-    return create_app()
+    os.environ["APP_ENV"] = "test"
+    os.environ["DATABASE_URL"] = "sqlite+pysqlite:////tmp/harness_framework_test.db"
+
+    from app.core.settings import get_settings
+
+    get_settings.cache_clear()
+    import app.db.session as session_module
+    import app.db.bootstrap as bootstrap_module
+    import app.main as main_module
+
+    importlib.reload(session_module)
+    importlib.reload(bootstrap_module)
+    importlib.reload(main_module)
+    bootstrap_module.reset_database_schema()
+    app_instance = main_module.create_app()
+
+    os.environ.pop("APP_ENV", None)
+    os.environ.pop("DATABASE_URL", None)
+    get_settings.cache_clear()
+    return app_instance
 
 
 @pytest.fixture

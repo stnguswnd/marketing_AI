@@ -36,14 +36,17 @@ PRD, Architecture, API, Phase 로그에 흩어진 내용을 실제 구현 기준
 - 본인 점포 기준으로 콘텐츠 요청을 생성한다.
 - 이미지 자산을 등록한다.
 - 생성된 draft 상태 결과를 확인한다.
+- 본인 점포 콘텐츠를 승인, 반려, 발행 요청할 수 있다.
+- 리뷰 답글 승인과 리포트 생성을 직접 수행할 수 있다.
 
 ### `operator`
-- 점주 대신 승인, 반려, 발행 요청, 리뷰 승인, 리포트 생성 등을 수행한다.
 - 운영 관점에서 여러 점포 데이터를 조회한다.
+- 감사, 관측, 예외 상황 대응을 지원한다.
 
 ### `admin`
 - `operator`와 유사하지만 운영/관리 전반을 총괄하는 역할이다.
 - 감사 로그, 관측 정보, 발행 결과, 작업 상태를 조회한다.
+- 점포 단위 활동 요약과 플랫폼 운영 정책을 관리한다.
 
 ### `webhook`
 - 외부 리뷰 플랫폼이 시스템으로 이벤트를 전달할 때 사용하는 진입 역할이다.
@@ -72,7 +75,7 @@ PRD, Architecture, API, Phase 로그에 흩어진 내용을 실제 구현 기준
   - `core/`: 인증, 권한, 설정, 에러
 
 ## 상태 저장
-- 현재 런타임 기준: `MemoryRepository`
+- 현재 런타임 기준: `PostgreSQL + SQLAlchemy Repository`
 - 저장 항목
   - assets
   - contents
@@ -83,14 +86,14 @@ PRD, Architecture, API, Phase 로그에 흩어진 내용을 실제 구현 기준
   - audit_logs
   - request_logs
 
-## 운영 전환 스캐폴드
+## 운영 인프라
 - `backend/app/core/settings.py`
 - `backend/app/db/`
 - `backend/app/models/`
 - `backend/app/workers/`
 - `infra/docker-compose.yml`
 
-현재는 운영 전환용 파일이 추가된 상태이며, 실제 영속 저장소 전환은 아직 완료되지 않았다.
+현재 백엔드 CRUD와 감사/관측 로그는 DB를 기준으로 동작한다.
 
 ---
 
@@ -128,8 +131,8 @@ PRD, Architecture, API, Phase 로그에 흩어진 내용을 실제 구현 기준
 3. 자산 ID를 포함해 콘텐츠 생성 요청을 보낸다.
 4. 백엔드는 입력 스키마를 검증한다.
 5. 콘텐츠 그래프를 실행해 title/body/hashtags를 생성한다.
-6. 결과를 `draft` 상태로 저장한다.
-7. content_generate job과 audit log를 생성한다.
+6. 결과를 `draft` 상태로 PostgreSQL에 저장한다.
+7. content_generate job과 audit log를 DB에 생성한다.
 
 #### 출력
 - `content_id`
@@ -172,7 +175,7 @@ PRD, Architecture, API, Phase 로그에 흩어진 내용을 실제 구현 기준
 ### 5.3 콘텐츠 승인 / 반려
 
 #### 목적
-관리자가 draft 콘텐츠를 운영 기준에 따라 승인 또는 반려한다.
+점주가 본인 점포 draft 콘텐츠를 운영 기준에 따라 승인 또는 반려한다.
 
 #### 엔드포인트
 - `POST /api/v1/contents/{content_id}/approve`
@@ -183,7 +186,7 @@ PRD, Architecture, API, Phase 로그에 흩어진 내용을 실제 구현 기준
 - `draft -> rejected`
 
 #### 검증 규칙
-- 승인/반려는 `operator`, `admin`만 가능
+- 승인/반려는 `merchant`, `operator`, `admin`이 가능
 - 잘못된 상태 전이는 거부
 - 모든 액션은 audit log 기록
 
@@ -207,7 +210,7 @@ PRD, Architecture, API, Phase 로그에 흩어진 내용을 실제 구현 기준
 - `approved -> scheduled`
 
 #### 처리 방식
-1. 관리자가 publish 요청을 보낸다.
+1. 점주 또는 운영자가 publish 요청을 보낸다.
 2. 백엔드는 승인 상태인지 확인한다.
 3. 필요하면 variant 생성 단계를 실행한다.
 4. publish job을 생성한다.

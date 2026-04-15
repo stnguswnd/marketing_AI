@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from app.repositories.memory import repository
+from app.repositories.database import db_repository
 from app.schemas.common import ContentStatus, CountryCode, PlatformType, ReviewStatus
 
 
@@ -11,7 +11,7 @@ def _now() -> datetime:
 
 
 def seed_demo_repository() -> None:
-    if repository.contents:
+    if db_repository.list_contents():
         return
 
     now = _now()
@@ -63,7 +63,7 @@ def seed_demo_repository() -> None:
         },
     ]
     for asset in demo_assets:
-        repository.assets[asset["asset_id"]] = asset
+        db_repository.create_asset(asset)
 
     demo_contents = [
         {
@@ -140,9 +140,9 @@ def seed_demo_repository() -> None:
         },
     ]
     for content in demo_contents:
-        repository.contents[content["content_id"]] = content
+        db_repository.create_content(content)
 
-    repository.assets["asset_variant_demo_003"] = {
+    db_repository.create_asset({
         "asset_id": "asset_variant_demo_003",
         "merchant_id": "m_003",
         "filename": "bakery-window-variant.jpg",
@@ -156,7 +156,7 @@ def seed_demo_repository() -> None:
         "preview_url": "https://images.unsplash.com/photo-1483695028939-5bb13f8648b0?auto=format&fit=crop&w=1200&q=80",
         "created_at": now,
         "updated_at": now,
-    }
+    })
 
     publish_results = [
         {
@@ -197,9 +197,9 @@ def seed_demo_repository() -> None:
         },
     ]
     for result in publish_results:
-        repository.publish_results[result["publish_result_id"]] = result
+        db_repository.create_publish_result(result)
 
-    repository.reviews["review_demo_004"] = {
+    db_repository.create_review({
         "review_id": "review_demo_004",
         "merchant_id": "m_004",
         "platform": PlatformType.GOOGLE_BUSINESS,
@@ -211,9 +211,9 @@ def seed_demo_repository() -> None:
         "reply_draft": "기다리게 해드려 죄송합니다. 다음 방문 때 더 나은 경험을 드릴 수 있도록 개선하겠습니다.",
         "escalated": True,
         "created_at": now,
-    }
+    })
 
-    repository.jobs["job_demo_publish_002"] = {
+    db_repository.create_job({
         "job_id": "job_demo_publish_002",
         "job_type": "content_publish",
         "status": "succeeded",
@@ -221,8 +221,8 @@ def seed_demo_repository() -> None:
         "resource_id": "content_demo_002",
         "created_at": now,
         "updated_at": now,
-    }
-    repository.jobs["job_demo_publish_003"] = {
+    })
+    db_repository.create_job({
         "job_id": "job_demo_publish_003",
         "job_type": "content_publish",
         "status": "succeeded",
@@ -230,8 +230,8 @@ def seed_demo_repository() -> None:
         "resource_id": "content_demo_003",
         "created_at": now,
         "updated_at": now,
-    }
-    repository.jobs["job_demo_variant_003"] = {
+    })
+    db_repository.create_job({
         "job_id": "job_demo_variant_003",
         "job_type": "image_variant_generate",
         "status": "succeeded",
@@ -239,8 +239,8 @@ def seed_demo_repository() -> None:
         "resource_id": "content_demo_003",
         "created_at": now,
         "updated_at": now,
-    }
-    repository.reports["report_demo_002"] = {
+    })
+    db_repository.create_report({
         "report_id": "report_demo_002",
         "scope_type": "merchant",
         "scope_id": "m_002",
@@ -248,4 +248,4 @@ def seed_demo_repository() -> None:
         "month": 4,
         "status": "succeeded",
         "created_at": now,
-    }
+    })

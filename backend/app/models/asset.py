@@ -22,5 +22,6 @@ class AssetModel(Base):
     provider: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     generated_by_job_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     source_asset_ids_json: Mapped[str] = mapped_column(Text, default="[]")
+    preview_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

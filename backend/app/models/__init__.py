@@ -6,7 +6,10 @@ from app.models.content import ContentModel
 from app.models.job import JobModel
 from app.models.merchant import MerchantModel
 from app.models.membership import MembershipModel
+from app.models.publish_result import PublishResultModel
 from app.models.request_log import RequestLogModel
+from app.models.report import ReportModel
+from app.models.review import ReviewModel
 from app.models.user import UserModel
 
 __all__ = [
@@ -16,6 +19,9 @@ __all__ = [
     "JobModel",
     "MerchantModel",
     "MembershipModel",
+    "PublishResultModel",
     "RequestLogModel",
+    "ReportModel",
+    "ReviewModel",
     "UserModel",
 ]

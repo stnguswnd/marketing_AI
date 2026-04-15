@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { clearAuthSession, readAuthSession, writeAuthSession } from "@/lib/auth";
@@ -25,6 +26,7 @@ const routes = [
 ];
 
 export function HomeHub() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [accounts, setAccounts] = useState<Awaited<ReturnType<typeof listTestAccounts>>["items"]>([]);
   const [session, setSession] = useState<ReturnType<typeof readAuthSession>>(null);
@@ -49,6 +51,7 @@ export function HomeHub() {
       writeAuthSession(auth);
       setSession(auth);
       setMessage(`${auth.displayName} 계정으로 로그인했습니다.`);
+      router.push(auth.role === "admin" ? "/admin" : "/merchant");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "로그인에 실패했습니다.");
     } finally {

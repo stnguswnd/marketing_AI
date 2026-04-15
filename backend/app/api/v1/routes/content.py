@@ -3,7 +3,6 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 
 from app.core.auth import RequestContext, get_request_context
-from app.core.errors import AppError
 from app.schemas.content import (
     ContentApproveRequest,
     ContentDetailResponse,
@@ -44,26 +43,7 @@ def list_contents(
     platform: Optional[str] = Query(default=None),
     context: RequestContext = Depends(get_request_context),
 ) -> ContentListResponse:
-    from app.repositories.memory import repository
-    from app.schemas.content import ContentListItemResponse
-
-    if context.role not in {"merchant", "operator", "admin"}:
-        raise AppError(status_code=403, error_code="FORBIDDEN_CONTENT_ACCESS", message="콘텐츠 접근 권한이 없습니다.")
-    if context.role == "merchant":
-        merchant_id = context.merchant_id
-
-    items = []
-    for content in repository.contents.values():
-        if merchant_id and content["merchant_id"] != merchant_id:
-            continue
-        if status and content["status"] != status:
-            continue
-        if platform and str(content["platform"]) != platform:
-            continue
-        items.append(ContentListItemResponse(**content))
-
-    items.sort(key=lambda item: item.created_at, reverse=True)
-    return ContentListResponse(items=items)
+    return content_service.list(context, merchant_id=merchant_id, status=status, platform=platform)
 
 
 @router.post("/{content_id}/approve", response_model=ContentStatusChangeResponse)

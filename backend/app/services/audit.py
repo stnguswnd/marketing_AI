@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from app.core.auth import RequestContext
 from app.core.permissions import ensure_roles
-from app.repositories.memory import repository
+from app.repositories.database import db_repository
 from app.schemas.audit import AuditLogListResponse, AuditLogResponse
 
 
@@ -27,7 +27,7 @@ class AuditService:
         metadata: Optional[dict[str, object]] = None,
     ) -> str:
         audit_log_id = f"audit_{uuid4().hex[:10]}"
-        repository.audit_logs[audit_log_id] = {
+        db_repository.create_audit_log({
             "audit_log_id": audit_log_id,
             "request_id": context.request_id if context else None,
             "actor_id": context.user_id if context else None,
@@ -39,7 +39,7 @@ class AuditService:
             "status": status,
             "metadata": metadata or {},
             "created_at": now_utc(),
-        }
+        })
         return audit_log_id
 
     def list(
@@ -53,7 +53,7 @@ class AuditService:
         ensure_roles(context, "operator", "admin", error_code="FORBIDDEN_AUDIT_ACCESS", message="감사 로그 접근 권한이 없습니다.")
 
         items = []
-        for item in repository.audit_logs.values():
+        for item in db_repository.list_audit_logs():
             if action and item["action"] != action:
                 continue
             if resource_type and item["resource_type"] != resource_type:

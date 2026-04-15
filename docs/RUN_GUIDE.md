@@ -9,6 +9,7 @@
 - `backend/`: FastAPI + LangGraph + SQLAlchemy + Celery
 - `infra/docker-compose.yml`: Postgres, Redis, backend, worker, frontend
 - `backend/scripts/start_backend.sh`: 컨테이너 시작 시 DB schema/seed 자동 적용
+- 개발용 Compose는 `frontend/`, `backend/`를 컨테이너에 bind mount 하므로, 코드 수정 후 매번 `--build`를 다시 할 필요가 없다.
 
 현재 기준으로 아직 미완료인 항목은 다음과 같다.
 - 실제 파일 업로드 UI
@@ -37,6 +38,16 @@ docker compose -f infra/docker-compose.yml up --build
 정상 기준:
 - `postgres`, `redis`, `backend`, `worker`, `frontend` 컨테이너가 모두 뜬다.
 - backend 시작 전에 DB schema와 seed 계정이 자동 생성된다.
+
+첫 실행 이후 코드만 수정했다면 보통은 아래로 충분하다.
+
+```bash
+docker compose -f infra/docker-compose.yml up -d
+```
+
+즉:
+- 이미지나 의존성 변경: `up --build -d`
+- 코드 수정만 반영: 저장 후 자동 반영, 필요 시 `up -d` 또는 `restart`
 
 접속 주소:
 - 프론트: `http://127.0.0.1:3000`
@@ -110,8 +121,7 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api/v1 npm run dev -- --hostname 
 - 점주별 예시 게시 카드와 예시 이미지
 
 ## 5. 현재 구현 제한
-- 운영 데이터 본체는 아직 메모리 저장소 기반이다.
-- 계정과 점포 정보는 PostgreSQL seed를 사용한다.
+- 운영 데이터와 계정/점포 정보는 PostgreSQL 기준으로 저장된다.
 - `Nano Banana`는 실제 외부 API 호출이 아니라 스텁 어댑터다.
 - 발행 adapter는 아직 실제 외부 플랫폼 payload 연동까지는 가지 않았다.
 
@@ -126,6 +136,18 @@ docker compose -f infra/docker-compose.yml logs -f postgres backend
 
 ### 포트 충돌이 날 때
 기존 로컬 dev server를 먼저 내리거나 Docker Compose만 사용한다.
+
+### 코드 수정이 바로 안 보일 때
+현재 Compose는 개발용 bind mount를 사용한다.
+
+- 백엔드 Python 코드: `uvicorn --reload`로 자동 반영
+- 프론트 Next.js 코드: `next dev`로 자동 반영
+
+그래도 반영이 늦으면:
+
+```bash
+docker compose -f infra/docker-compose.yml restart backend frontend
+```
 
 ### 프론트에서 API 요청이 실패할 때
 프론트 환경변수가 올바른지 확인한다.

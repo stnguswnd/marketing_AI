@@ -8,11 +8,13 @@ from app.core.errors import AppError
 from app.core.permissions import ensure_authenticated_actor, ensure_merchant_scope, ensure_roles
 from app.domain.status_rules import ensure_content_transition
 from app.graphs.content import run_content_graph
-from app.repositories.memory import repository
+from app.repositories.database import db_repository
 from app.schemas.common import ContentStatus, CountryCode, PlatformType
 from app.schemas.content import (
     ContentApproveRequest,
     ContentDetailResponse,
+    ContentListItemResponse,
+    ContentListResponse,
     ContentGenerateRequest,
     ContentGenerateResponse,
     ContentPublishRequest,
@@ -31,7 +33,7 @@ def now_utc() -> datetime:
 class ContentService:
     def _validate_asset_ownership(self, merchant_id: str, asset_ids: list[str]) -> None:
         for asset_id in asset_ids:
-            asset = repository.assets.get(asset_id)
+            asset = db_repository.get_asset(asset_id)
             if not asset or asset["merchant_id"] != merchant_id:
                 raise AppError(
                     status_code=422,
@@ -79,7 +81,7 @@ class ContentService:
         body = graph_result["body"]
         hashtags = graph_result["hashtags"]
 
-        repository.contents[content_id] = {
+        db_repository.create_content({
             "content_id": content_id,
             "merchant_id": payload.merchant_id,
             "target_country": payload.target_country,
@@ -102,8 +104,8 @@ class ContentService:
             "approval_required": True,
             "created_at": created_at,
             "updated_at": created_at,
-        }
-        repository.jobs[job_id] = {
+        })
+        db_repository.create_job({
             "job_id": job_id,
             "job_type": "content_generate",
             "status": "succeeded",
@@ -111,7 +113,7 @@ class ContentService:
             "resource_id": content_id,
             "created_at": created_at,
             "updated_at": created_at,
-        }
+        })
         audit_service.record(
             action="content.generate",
             resource_type="content",
@@ -132,11 +134,35 @@ class ContentService:
 
     def get(self, content_id: str, context: RequestContext) -> ContentDetailResponse:
         ensure_roles(context, "merchant", "operator", "admin", error_code="FORBIDDEN_CONTENT_ACCESS", message="콘텐츠 접근 권한이 없습니다.")
-        content = repository.contents.get(content_id)
+        content = db_repository.get_content(content_id)
         if not content:
             raise AppError(status_code=404, error_code="CONTENT_NOT_FOUND", message="콘텐츠를 찾을 수 없습니다.")
         ensure_merchant_scope(context, content["merchant_id"], error_code="FORBIDDEN_CONTENT_ACCESS", message="콘텐츠 접근 권한이 없습니다.")
         return ContentDetailResponse(**content)
+
+    def list(
+        self,
+        context: RequestContext,
+        merchant_id: str | None = None,
+        status: str | None = None,
+        platform: str | None = None,
+    ) -> ContentListResponse:
+        ensure_roles(context, "merchant", "operator", "admin", error_code="FORBIDDEN_CONTENT_ACCESS", message="콘텐츠 접근 권한이 없습니다.")
+        if context.role == "merchant":
+            merchant_id = context.merchant_id
+
+        items = []
+        for content in db_repository.list_contents():
+            if merchant_id and content["merchant_id"] != merchant_id:
+                continue
+            if status and content["status"] != status:
+                continue
+            if platform and str(content["platform"]) != platform:
+                continue
+            items.append(ContentListItemResponse(**content))
+
+        items.sort(key=lambda item: item.created_at, reverse=True)
+        return ContentListResponse(items=items)
 
     def approve(
         self,
@@ -146,15 +172,14 @@ class ContentService:
     ) -> ContentStatusChangeResponse:
         ensure_roles(context, "merchant", "operator", "admin", error_code="FORBIDDEN_APPROVAL", message="승인 권한이 없습니다.")
         ensure_authenticated_actor(context)
-        content = repository.contents.get(content_id)
+        content = db_repository.get_content(content_id)
         if not content:
             raise AppError(status_code=404, error_code="CONTENT_NOT_FOUND", message="콘텐츠를 찾을 수 없습니다.")
         ensure_merchant_scope(context, content["merchant_id"], error_code="FORBIDDEN_APPROVAL", message="승인 권한이 없습니다.")
         ensure_content_transition(content["status"], ContentStatus.APPROVED, "승인")
 
         approved_at = now_utc()
-        content["status"] = ContentStatus.APPROVED
-        content["updated_at"] = approved_at
+        db_repository.update_content(content_id, status=ContentStatus.APPROVED, updated_at=approved_at)
         audit_service.record(
             action="content.approve",
             resource_type="content",
@@ -178,14 +203,14 @@ class ContentService:
     ) -> ContentStatusChangeResponse:
         ensure_roles(context, "merchant", "operator", "admin", error_code="FORBIDDEN_REJECTION", message="반려 권한이 없습니다.")
         ensure_authenticated_actor(context)
-        content = repository.contents.get(content_id)
+        content = db_repository.get_content(content_id)
         if not content:
             raise AppError(status_code=404, error_code="CONTENT_NOT_FOUND", message="콘텐츠를 찾을 수 없습니다.")
         ensure_merchant_scope(context, content["merchant_id"], error_code="FORBIDDEN_REJECTION", message="반려 권한이 없습니다.")
         ensure_content_transition(content["status"], ContentStatus.REJECTED, "반려")
 
-        content["status"] = ContentStatus.REJECTED
-        content["updated_at"] = now_utc()
+        rejected_at = now_utc()
+        db_repository.update_content(content_id, status=ContentStatus.REJECTED, updated_at=rejected_at)
         audit_service.record(
             action="content.reject",
             resource_type="content",

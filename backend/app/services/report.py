@@ -7,7 +7,7 @@ from uuid import uuid4
 from app.core.auth import RequestContext
 from app.core.errors import AppError
 from app.core.permissions import ensure_authenticated_actor, ensure_merchant_scope, ensure_roles
-from app.repositories.memory import repository
+from app.repositories.database import db_repository
 from app.schemas.report import MonthlyReportGenerateRequest, MonthlyReportGenerateResponse, ReportListItemResponse, ReportListResponse
 from app.services.audit import audit_service
 
@@ -31,7 +31,7 @@ class ReportService:
         report_id = f"report_{uuid4().hex[:8]}"
         job_id = f"job_report_{uuid4().hex[:8]}"
         created_at = now_utc()
-        repository.reports[report_id] = {
+        db_repository.create_report({
             "report_id": report_id,
             "scope_type": payload.scope_type,
             "scope_id": payload.scope_id,
@@ -39,8 +39,8 @@ class ReportService:
             "month": payload.month,
             "status": "queued",
             "created_at": created_at,
-        }
-        repository.jobs[job_id] = {
+        })
+        db_repository.create_job({
             "job_id": job_id,
             "job_type": "monthly_report_generate",
             "status": "queued",
@@ -48,7 +48,7 @@ class ReportService:
             "resource_id": report_id,
             "created_at": created_at,
             "updated_at": created_at,
-        }
+        })
         audit_service.record(
             action="report.generate_monthly",
             resource_type="report",
@@ -71,7 +71,7 @@ class ReportService:
             scope_id = context.merchant_id
 
         items = []
-        for report in repository.reports.values():
+        for report in db_repository.list_reports():
             if scope_type and report["scope_type"] != scope_type:
                 continue
             if scope_id and report["scope_id"] != scope_id:

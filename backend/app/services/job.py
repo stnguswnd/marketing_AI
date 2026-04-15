@@ -3,7 +3,7 @@ from typing import Optional
 from app.core.auth import RequestContext
 from app.core.errors import AppError
 from app.core.permissions import ensure_merchant_scope, ensure_roles
-from app.repositories.memory import repository
+from app.repositories.database import db_repository
 from app.schemas.job import JobListItemResponse, JobListResponse, JobStatusResponse
 
 
@@ -12,23 +12,23 @@ class JobService:
         resource_type = job["resource_type"]
         resource_id = job["resource_id"]
         if resource_type == "content":
-            content = repository.contents.get(resource_id)
+            content = db_repository.get_content(resource_id)
             return content["merchant_id"] if content else None
         if resource_type == "review":
-            review = repository.reviews.get(resource_id)
+            review = db_repository.get_review(resource_id)
             return review["merchant_id"] if review else None
         if resource_type == "report":
-            report = repository.reports.get(resource_id)
+            report = db_repository.get_report(resource_id)
             if report and report["scope_type"] == "merchant":
                 return report["scope_id"]
         if resource_type == "asset":
-            asset = repository.assets.get(resource_id)
+            asset = db_repository.get_asset(resource_id)
             return asset["merchant_id"] if asset else None
         return None
 
     def get(self, job_id: str, context: RequestContext) -> JobStatusResponse:
         ensure_roles(context, "merchant", "operator", "admin", error_code="FORBIDDEN_JOB_ACCESS", message="작업 접근 권한이 없습니다.")
-        job = repository.jobs.get(job_id)
+        job = db_repository.get_job(job_id)
         if not job:
             raise AppError(status_code=404, error_code="JOB_NOT_FOUND", message="작업을 찾을 수 없습니다.")
         merchant_id = self._job_merchant_id(job)
@@ -45,7 +45,7 @@ class JobService:
         ensure_roles(context, "merchant", "operator", "admin", error_code="FORBIDDEN_JOB_ACCESS", message="작업 접근 권한이 없습니다.")
 
         items = []
-        for job in repository.jobs.values():
+        for job in db_repository.list_jobs():
             if resource_type and job["resource_type"] != resource_type:
                 continue
             if status and job["status"] != status:

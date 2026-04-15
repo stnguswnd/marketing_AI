@@ -7,13 +7,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.db.bootstrap import create_database_schema
+from app.db.bootstrap import reset_database_schema
 from app.db.seeds import seed_mock_data
 from app.db.session import SessionLocal
 
 
 def main() -> None:
-    create_database_schema()
+    reset_database_schema()
     with SessionLocal() as session:
         seed_mock_data(session)
     print("Mock PostgreSQL database initialized with admin and merchant accounts.")

@@ -40,7 +40,7 @@ flowchart TB
     end
 
     subgraph Storage["Current Runtime Storage"]
-        MemoryRepo["MemoryRepository"]
+        MemoryRepo["SQLAlchemy Repository"]
         AuditLogs["audit_logs"]
         RequestLogs["request_logs"]
         PublishResults["publish_results"]
@@ -153,7 +153,7 @@ digraph HarnessFramework {
 
   subgraph cluster_storage {
     label="Current Storage";
-    MemoryRepo [label="MemoryRepository"];
+    MemoryRepo [label="SQLAlchemy Repository"];
     PublishResults [label="publish_results"];
     AuditLogs [label="audit_logs"];
     RequestLogs [label="request_logs"];
@@ -227,7 +227,7 @@ sequenceDiagram
     participant API as FastAPI API
     participant ContentSvc as ContentService
     participant ContentGraph as LangGraph Content Graph
-    participant Repo as MemoryRepository
+    participant Repo as SQLAlchemy Repository
     participant Audit as AuditService
 
     Merchant->>Frontend: Fill form + upload asset metadata
@@ -296,7 +296,7 @@ sequenceDiagram
     participant API as FastAPI API
     participant ReviewSvc as ReviewService
     participant ReviewGraph as LangGraph Review Graph
-    participant Repo as MemoryRepository
+    participant Repo as SQLAlchemy Repository
     participant Admin as Admin UI
     participant Audit as AuditService
 
@@ -344,8 +344,8 @@ digraph RuntimeFlow {
   Frontend [label="Next.js frontend"];
   API [label="FastAPI app"];
   Settings [label="Settings / .env"];
-  Repo [label="Current: MemoryRepository"];
-  DB [label="Future: PostgreSQL + SQLAlchemy"];
+  Repo [label="Current: SQLAlchemy Repository"];
+  DB [label="PostgreSQL"];
   Worker [label="Celery worker"];
   Broker [label="Redis broker/result backend"];
   Docker [label="docker-compose"];

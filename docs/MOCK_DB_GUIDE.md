@@ -1,6 +1,6 @@
 # Mock DB Guide
 
-이 프로젝트는 현재 운영 데이터 본체는 메모리 저장소를 사용하지만, 계정/점포와 로그인 검증은 `PostgreSQL + SQLAlchemy` 기반 목업 DB를 사용할 수 있다. Docker Compose 실행 시 이 DB는 자동으로 생성되고 seed 된다.
+이 프로젝트는 현재 운영 데이터와 계정/점포 데이터를 모두 `PostgreSQL + SQLAlchemy` 기준으로 구동한다. Docker Compose 실행 시 이 DB는 자동으로 생성되고 seed 된다.
 
 ## Seed 계정
 
@@ -20,10 +20,13 @@
 - `users`
 - `merchants`
 - `memberships`
-- 기존 운영 스캐폴드 테이블
+- 운영 데이터 테이블
   - `assets`
   - `contents`
+  - `reviews`
+  - `reports`
   - `jobs`
+  - `publish_results`
   - `audit_logs`
   - `request_logs`
 
@@ -33,9 +36,10 @@
 1. `postgres` 컨테이너가 뜬다.
 2. `backend` 컨테이너가 `backend/scripts/start_backend.sh`를 실행한다.
 3. 이 스크립트가 `python scripts/init_mock_db.py`를 반복 호출한다.
-4. 스키마 생성과 seed 계정 insert가 끝나면 `uvicorn`이 시작된다.
+4. init 스크립트는 mock schema를 최신 모델 기준으로 재생성한 뒤 seed 계정과 demo 데이터를 넣는다.
+5. 그 다음 `uvicorn`이 시작된다.
 
-즉, 별도 수동 insert 없이 초기 계정이 자동 업로드된다.
+즉, 별도 수동 insert 없이 초기 계정이 자동 업로드된다. Docker Compose 기준 mock 환경에서는 재시작 시 데이터가 seed 상태로 다시 맞춰질 수 있다.
 
 ## 수동 실행 순서
 
@@ -70,6 +74,6 @@ select user_id, merchant_id, membership_role from memberships order by membershi
 
 ## 현재 한계
 
-- FastAPI 런타임은 아직 메모리 저장소를 사용한다.
-- 위 목업 DB는 인증/회원 관리와 초기 점포 데이터를 위한 실제 데이터베이스 초석이다.
-- 다음 단계는 `MemoryRepository -> SQLAlchemy repository` 전환이다.
+- 실제 object storage 연동은 아직 없다.
+- `Nano Banana`와 외부 발행 adapter는 여전히 스텁 수준이다.
+- DB는 붙었지만 외부 채널 연동까지 운영 수준은 아니다.

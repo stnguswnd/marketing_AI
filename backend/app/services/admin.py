@@ -5,7 +5,7 @@ from typing import Optional
 
 from app.core.auth import RequestContext
 from app.core.permissions import ensure_roles
-from app.repositories.memory import repository
+from app.repositories.database import db_repository
 from app.schemas.admin import MerchantSummaryListResponse, MerchantSummaryResponse
 from app.schemas.common import ContentStatus, ReviewStatus
 
@@ -38,7 +38,7 @@ class AdminService:
                 }
             return summaries[merchant_id]
 
-        for content in repository.contents.values():
+        for content in db_repository.list_contents():
             summary = ensure_summary(content["merchant_id"])
             summary["content_count"] = int(summary["content_count"]) + 1
             if content["status"] == ContentStatus.DRAFT:
@@ -51,7 +51,7 @@ class AdminService:
                 content.get("created_at"),
             )
 
-        for review in repository.reviews.values():
+        for review in db_repository.list_reviews():
             summary = ensure_summary(review["merchant_id"])
             summary["review_count"] = int(summary["review_count"]) + 1
             if review["status"] == ReviewStatus.DRAFT:
@@ -61,7 +61,7 @@ class AdminService:
                 review.get("created_at"),
             )
 
-        for asset in repository.assets.values():
+        for asset in db_repository.list_assets():
             summary = ensure_summary(asset["merchant_id"])
             summary["asset_count"] = int(summary["asset_count"]) + 1
             summary["latest_activity_at"] = _latest_timestamp(
@@ -70,7 +70,7 @@ class AdminService:
                 asset.get("created_at"),
             )
 
-        for report in repository.reports.values():
+        for report in db_repository.list_reports():
             if report["scope_type"] != "merchant":
                 continue
             summary = ensure_summary(report["scope_id"])

@@ -9,7 +9,7 @@ from app.core.errors import AppError
 from app.core.permissions import ensure_authenticated_actor, ensure_merchant_scope, ensure_roles
 from app.domain.status_rules import ensure_review_transition
 from app.graphs.review import run_review_graph
-from app.repositories.memory import repository
+from app.repositories.database import db_repository
 from app.schemas.common import ReviewStatus
 from app.schemas.review import (
     ReviewApproveReplyRequest,
@@ -40,7 +40,7 @@ class ReviewService:
                 "rating": payload.rating,
             }
         )
-        repository.reviews[review_id] = {
+        db_repository.create_review({
             "review_id": review_id,
             "merchant_id": payload.merchant_id,
             "platform": payload.platform,
@@ -52,8 +52,8 @@ class ReviewService:
             "reply_draft": graph_result["reply_draft"],
             "escalated": graph_result["escalated"],
             "created_at": created_at,
-        }
-        repository.jobs[job_id] = {
+        })
+        db_repository.create_job({
             "job_id": job_id,
             "job_type": "review_ingest",
             "status": "queued",
@@ -61,7 +61,7 @@ class ReviewService:
             "resource_id": review_id,
             "created_at": created_at,
             "updated_at": created_at,
-        }
+        })
         audit_service.record(
             action="review.ingest_webhook",
             resource_type="review",
@@ -74,7 +74,7 @@ class ReviewService:
 
     def get(self, review_id: str, context: RequestContext) -> ReviewDetailResponse:
         ensure_roles(context, "merchant", "operator", "admin", error_code="FORBIDDEN_REVIEW_ACCESS", message="리뷰 접근 권한이 없습니다.")
-        review = repository.reviews.get(review_id)
+        review = db_repository.get_review(review_id)
         if not review:
             raise AppError(status_code=404, error_code="REVIEW_NOT_FOUND", message="리뷰를 찾을 수 없습니다.")
         ensure_merchant_scope(context, review["merchant_id"], error_code="FORBIDDEN_REVIEW_ACCESS", message="리뷰 접근 권한이 없습니다.")
@@ -92,7 +92,7 @@ class ReviewService:
             merchant_id = context.merchant_id
 
         items = []
-        for review in repository.reviews.values():
+        for review in db_repository.list_reviews():
             if merchant_id and review["merchant_id"] != merchant_id:
                 continue
             if status and review["status"] != status:
@@ -112,14 +112,13 @@ class ReviewService:
     ) -> ReviewApproveReplyResponse:
         ensure_roles(context, "merchant", "operator", "admin", error_code="FORBIDDEN_REVIEW_APPROVAL", message="리뷰 승인 권한이 없습니다.")
         ensure_authenticated_actor(context)
-        review = repository.reviews.get(review_id)
+        review = db_repository.get_review(review_id)
         if not review:
             raise AppError(status_code=404, error_code="REVIEW_NOT_FOUND", message="리뷰를 찾을 수 없습니다.")
         ensure_merchant_scope(context, review["merchant_id"], error_code="FORBIDDEN_REVIEW_APPROVAL", message="리뷰 승인 권한이 없습니다.")
         approved_reply = payload.reply_text or review["reply_draft"]
         ensure_review_transition(review["status"], ReviewStatus.APPROVED, "리뷰 답글 승인")
-        review["status"] = ReviewStatus.APPROVED
-        review["reply_draft"] = approved_reply
+        db_repository.update_review(review_id, status=ReviewStatus.APPROVED, reply_draft=approved_reply)
         audit_service.record(
             action="review.approve_reply",
             resource_type="review",
