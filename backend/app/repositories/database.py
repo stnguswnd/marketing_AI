@@ -17,6 +17,7 @@ from app.models.publish_result import PublishResultModel
 from app.models.report import ReportModel
 from app.models.request_log import RequestLogModel
 from app.models.review import ReviewModel
+from app.models.merchant_setting import MerchantSettingModel
 
 
 def _normalize_value(value: Any) -> Any:
@@ -93,6 +94,10 @@ class DatabaseRepository:
             "apply_image_variant": model.apply_image_variant,
             "image_variant_provider": model.image_variant_provider,
             "image_variant_job_id": model.image_variant_job_id,
+            "selected_variant_asset_id": model.selected_variant_asset_id,
+            "overlay_headline": model.overlay_headline,
+            "overlay_subheadline": model.overlay_subheadline,
+            "overlay_cta": model.overlay_cta,
             "publish_job_id": model.publish_job_id,
             "latest_publish_result_id": model.latest_publish_result_id,
             "publish_result_ids": _from_json_list(model.publish_result_ids_json),
@@ -187,6 +192,14 @@ class DatabaseRepository:
             "created_at": model.created_at,
         }
 
+    def _merchant_setting_to_dict(self, model: MerchantSettingModel) -> dict[str, Any]:
+        return {
+            "merchant_id": model.merchant_id,
+            "nano_banana_api_key": model.nano_banana_api_key,
+            "created_at": model.created_at,
+            "updated_at": model.updated_at,
+        }
+
     def create_asset(self, data: dict[str, Any]) -> dict[str, Any]:
         with session_scope() as session:
             model = AssetModel(
@@ -250,6 +263,10 @@ class DatabaseRepository:
                 apply_image_variant=bool(data.get("apply_image_variant", False)),
                 image_variant_provider=_normalize_value(data.get("image_variant_provider", "none")),
                 image_variant_job_id=data.get("image_variant_job_id"),
+                selected_variant_asset_id=data.get("selected_variant_asset_id"),
+                overlay_headline=data.get("overlay_headline"),
+                overlay_subheadline=data.get("overlay_subheadline"),
+                overlay_cta=data.get("overlay_cta"),
                 publish_job_id=data.get("publish_job_id"),
                 latest_publish_result_id=data.get("latest_publish_result_id"),
                 publish_result_ids_json=_as_json(data.get("publish_result_ids", [])),
@@ -474,6 +491,34 @@ class DatabaseRepository:
     def list_request_logs(self) -> list[dict[str, Any]]:
         with session_scope() as session:
             return [self._request_log_to_dict(item) for item in session.scalars(select(RequestLogModel)).all()]
+
+    def get_merchant_setting(self, merchant_id: str) -> Optional[dict[str, Any]]:
+        with session_scope() as session:
+            model = session.get(MerchantSettingModel, merchant_id)
+            return self._merchant_setting_to_dict(model) if model else None
+
+    def upsert_merchant_setting(
+        self,
+        merchant_id: str,
+        nano_banana_api_key: str,
+        updated_at: Any,
+    ) -> dict[str, Any]:
+        with session_scope() as session:
+            model = session.get(MerchantSettingModel, merchant_id)
+            if model is None:
+                model = MerchantSettingModel(
+                    merchant_id=merchant_id,
+                    nano_banana_api_key=nano_banana_api_key,
+                    created_at=updated_at,
+                    updated_at=updated_at,
+                )
+                session.add(model)
+            else:
+                model.nano_banana_api_key = nano_banana_api_key
+                model.updated_at = updated_at
+            session.flush()
+            session.refresh(model)
+            return self._merchant_setting_to_dict(model)
 
 
 db_repository = DatabaseRepository()

@@ -5,6 +5,7 @@ from app.models.audit_log import AuditLogModel
 from app.models.content import ContentModel
 from app.models.job import JobModel
 from app.models.merchant import MerchantModel
+from app.models.merchant_setting import MerchantSettingModel
 from app.models.membership import MembershipModel
 from app.models.publish_result import PublishResultModel
 from app.models.request_log import RequestLogModel
@@ -18,6 +19,7 @@ __all__ = [
     "ContentModel",
     "JobModel",
     "MerchantModel",
+    "MerchantSettingModel",
     "MembershipModel",
     "PublishResultModel",
     "RequestLogModel",

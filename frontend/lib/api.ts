@@ -64,6 +64,8 @@ export type CreateContentDraftResponse = {
   contentId: string;
   status: "draft" | "approved" | "scheduled" | "published" | "rejected" | "deleted";
   message: string;
+  imageVariantJobId?: string | null;
+  variantAssetIds?: string[];
 };
 
 export type ContentDetail = {
@@ -82,6 +84,10 @@ export type ContentDetail = {
   apply_image_variant: boolean;
   image_variant_provider: "none" | "nano_banana";
   image_variant_job_id?: string | null;
+  selected_variant_asset_id?: string | null;
+  overlay_headline?: string | null;
+  overlay_subheadline?: string | null;
+  overlay_cta?: string | null;
   publish_job_id?: string | null;
   latest_publish_result_id?: string | null;
   publish_result_ids?: string[];
@@ -121,6 +127,7 @@ export type ContentPublishRequest = {
   applyImageVariant: boolean;
   imageVariantProvider: "none" | "nano_banana";
   sourceAssetIds: string[];
+  selectedVariantAssetId?: string;
 };
 
 export type ContentPublishResponse = {
@@ -131,6 +138,23 @@ export type ContentPublishResponse = {
   image_variant_job_id?: string | null;
   image_variant_provider?: "none" | "nano_banana" | null;
   publish_result_id?: string | null;
+};
+
+export type ContentOverlayUpdateRequest = {
+  selectedVariantAssetId?: string;
+  overlayHeadline?: string;
+  overlaySubheadline?: string;
+  overlayCta?: string;
+};
+
+export type ContentOverlayResponse = {
+  content_id: string;
+  selected_variant_asset_id?: string | null;
+  overlay_headline?: string | null;
+  overlay_subheadline?: string | null;
+  overlay_cta?: string | null;
+  image_variant_job_id?: string | null;
+  variant_asset_ids: string[];
 };
 
 export type ReviewDetail = {
@@ -302,6 +326,13 @@ export type MerchantSummary = {
   latest_activity_at?: string | null;
 };
 
+export type MerchantNanoBananaSettingResponse = {
+  merchant_id: string;
+  has_api_key: boolean;
+  masked_api_key?: string | null;
+  updated_at?: string | null;
+};
+
 function resolveApiBaseUrl() {
   return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
 }
@@ -465,12 +496,16 @@ export async function createContentDraft(
     content_id: string;
     status: CreateContentDraftResponse["status"];
     message: string;
+    image_variant_job_id?: string | null;
+    variant_asset_ids?: string[];
   };
 
   return {
     contentId: body.content_id,
     status: body.status,
     message: body.message,
+    imageVariantJobId: body.image_variant_job_id,
+    variantAssetIds: body.variant_asset_ids,
   };
 }
 
@@ -574,6 +609,7 @@ export async function publishContent(
         apply_image_variant: payload.applyImageVariant,
         image_variant_provider: payload.imageVariantProvider,
         source_asset_ids: payload.sourceAssetIds,
+        selected_variant_asset_id: payload.selectedVariantAssetId || undefined,
       }),
       cache: "no-store",
     },
@@ -786,6 +822,81 @@ export async function fetchPublishResult(publishResultId: string, merchantId = "
       cache: "no-store",
     },
     "발행 결과를 불러오지 못했습니다.",
+  );
+}
+
+export async function updateContentOverlay(
+  contentId: string,
+  payload: ContentOverlayUpdateRequest,
+  merchantId = "m_123",
+): Promise<ContentOverlayResponse> {
+  return requestJson<ContentOverlayResponse>(
+    `${resolveApiBaseUrl()}/contents/${contentId}/overlay`,
+    {
+      method: "PATCH",
+      headers: actorHeaders("merchant", merchantId),
+      body: JSON.stringify({
+        selected_variant_asset_id: payload.selectedVariantAssetId || undefined,
+        overlay_headline: payload.overlayHeadline ?? undefined,
+        overlay_subheadline: payload.overlaySubheadline ?? undefined,
+        overlay_cta: payload.overlayCta ?? undefined,
+      }),
+      cache: "no-store",
+    },
+    "오버레이 설정을 저장하지 못했습니다.",
+  );
+}
+
+export async function regenerateContentImage(
+  contentId: string,
+  sourceAssetIds: string[],
+  merchantId = "m_123",
+): Promise<ContentOverlayResponse> {
+  return requestJson<ContentOverlayResponse>(
+    `${resolveApiBaseUrl()}/contents/${contentId}/regenerate-image`,
+    {
+      method: "POST",
+      headers: actorHeaders("merchant", merchantId),
+      body: JSON.stringify({
+        source_asset_ids: sourceAssetIds,
+      }),
+      cache: "no-store",
+    },
+    "이미지 재생성에 실패했습니다.",
+  );
+}
+
+export async function fetchMerchantNanoBananaSetting(
+  merchantId: string,
+): Promise<MerchantNanoBananaSettingResponse> {
+  const search = new URLSearchParams({ merchant_id: merchantId });
+  return requestJson<MerchantNanoBananaSettingResponse>(
+    `${resolveApiBaseUrl()}/merchant-settings/nano-banana?${search.toString()}`,
+    {
+      method: "GET",
+      headers: actorHeaders("merchant", merchantId),
+      cache: "no-store",
+    },
+    "Nano Banana API 설정을 불러오지 못했습니다.",
+  );
+}
+
+export async function saveMerchantNanoBananaSetting(
+  merchantId: string,
+  apiKey: string,
+): Promise<MerchantNanoBananaSettingResponse> {
+  return requestJson<MerchantNanoBananaSettingResponse>(
+    `${resolveApiBaseUrl()}/merchant-settings/nano-banana`,
+    {
+      method: "PUT",
+      headers: actorHeaders("merchant", merchantId),
+      body: JSON.stringify({
+        merchant_id: merchantId,
+        api_key: apiKey,
+      }),
+      cache: "no-store",
+    },
+    "Nano Banana API 설정을 저장하지 못했습니다.",
   );
 }
 

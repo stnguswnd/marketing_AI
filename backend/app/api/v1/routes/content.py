@@ -7,9 +7,12 @@ from app.schemas.content import (
     ContentApproveRequest,
     ContentDeleteResponse,
     ContentDetailResponse,
-    ContentListResponse,
     ContentGenerateRequest,
     ContentGenerateResponse,
+    ContentImageRegenerateRequest,
+    ContentListResponse,
+    ContentOverlayResponse,
+    ContentOverlayUpdateRequest,
     ContentPublishRequest,
     ContentPublishResponse,
     ContentRejectRequest,
@@ -72,6 +75,24 @@ def publish_content(
     context: RequestContext = Depends(get_request_context),
 ) -> ContentPublishResponse:
     return content_service.publish(content_id, payload, context)
+
+
+@router.patch("/{content_id}/overlay", response_model=ContentOverlayResponse)
+def update_content_overlay(
+    content_id: str,
+    payload: ContentOverlayUpdateRequest,
+    context: RequestContext = Depends(get_request_context),
+) -> ContentOverlayResponse:
+    return content_service.update_overlay(content_id, payload, context)
+
+
+@router.post("/{content_id}/regenerate-image", response_model=ContentOverlayResponse)
+def regenerate_content_image(
+    content_id: str,
+    payload: ContentImageRegenerateRequest,
+    context: RequestContext = Depends(get_request_context),
+) -> ContentOverlayResponse:
+    return content_service.regenerate_image(content_id, payload, context)
 
 
 @router.delete("/{content_id}", response_model=ContentDeleteResponse)

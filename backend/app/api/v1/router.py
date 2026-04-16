@@ -1,12 +1,13 @@
 from fastapi import APIRouter
 
-from app.api.v1.routes import admin, asset, audit, auth, content, health, job, observability, publish, report, review
+from app.api.v1.routes import admin, asset, audit, auth, content, health, job, merchant_setting, observability, publish, report, review
 
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
 api_router.include_router(auth.router, tags=["auth"])
 api_router.include_router(admin.router, tags=["admin"])
+api_router.include_router(merchant_setting.router, tags=["merchant-setting"])
 api_router.include_router(asset.router, tags=["asset"])
 api_router.include_router(content.router, tags=["content"])
 api_router.include_router(review.router, tags=["review"])

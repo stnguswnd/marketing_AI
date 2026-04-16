@@ -5,7 +5,17 @@ from sqlalchemy.orm import Session
 
 from app.db.base import Base
 from app.db.session import engine
-from app.models import AssetModel, AuditLogModel, ContentModel, JobModel, MerchantModel, MembershipModel, RequestLogModel, UserModel
+from app.models import (
+    AssetModel,
+    AuditLogModel,
+    ContentModel,
+    JobModel,
+    MerchantModel,
+    MerchantSettingModel,
+    MembershipModel,
+    RequestLogModel,
+    UserModel,
+)
 
 
 def create_database_schema() -> None:

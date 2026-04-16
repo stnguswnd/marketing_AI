@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChangeEvent, ReactNode, useEffect, useState } from "react";
+import { ChangeEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
 import { readAuthSession } from "@/lib/auth";
 import {
@@ -12,20 +12,26 @@ import {
   fetchAssetBinary,
   fetchAssetDetail,
   fetchContentDetail,
+  fetchMerchantNanoBananaSetting,
   fetchReviewDetail,
   generateMonthlyReport,
   initAssetUpload,
-  uploadAssetBinary,
   listContents,
   listJobs,
   listPublishResults,
   listReports,
   listReviews,
   publishContent,
+  regenerateContentImage,
   rejectContent,
+  saveMerchantNanoBananaSetting,
+  updateContentOverlay,
+  uploadAssetBinary,
 } from "@/lib/api";
 
 import styles from "./merchant-dashboard.module.css";
+
+export type MerchantDashboardSection = "compose" | "content" | "overlay" | "reviews" | "ops";
 
 type ContentStatus = "draft" | "approved" | "scheduled" | "published" | "rejected" | "deleted";
 
@@ -44,7 +50,6 @@ type RegisteredAsset = {
   contentType: string;
   sizeBytes: number;
   status: string;
-  previewUrl?: string | null;
   localPreviewUrl?: string | null;
 };
 
@@ -67,22 +72,16 @@ type ContentRequest = {
   publishMode: "draft";
 };
 
-const workflowSteps = [
-  ["1", "대상과 채널 선택", "나라, 플랫폼, 목표를 정한다."],
-  ["2", "메시지와 자산 입력", "brief와 업로드 이미지를 함께 등록한다."],
-  ["3", "점주가 직접 승인 및 발행", "생성된 초안을 점주가 확인하고 바로 승인하거나 발행한다."],
-] as const;
-
 const initialForm: ContentRequest = {
   merchantId: "m_123",
   targetCountry: "JP",
   platform: "instagram",
   goal: "store_visit",
-  inputBrief: "벚꽃 시즌에 맞춰 말차라떼와 푸딩을 강조하고 싶어요.",
+  inputBrief: "벚꽃 시즌에 맞춰 매장 분위기와 대표 메뉴가 잘 보이는 카드형 게시물을 만들고 싶습니다.",
   websiteUrl: "https://example.com",
   tone: "friendly",
-  mustInclude: "말차라떼, 부산 여행",
-  mustAvoid: "최고, 무조건",
+  mustInclude: "대표 메뉴, 시즌 한정",
+  mustAvoid: "과장 표현, 허위 문구",
   applyImageVariant: false,
   imageVariantProvider: "nano_banana",
   publishMode: "draft",
@@ -99,11 +98,18 @@ function formatBytes(sizeBytes: number) {
   if (sizeBytes < 1024 * 1024) {
     return `${Math.round(sizeBytes / 1024)} KB`;
   }
-
   return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function MerchantDashboard() {
+function revokePreviewAssets(items: ContentPreviewAsset[]) {
+  items.forEach((asset) => {
+    if (asset.objectUrl) {
+      URL.revokeObjectURL(asset.objectUrl);
+    }
+  });
+}
+
+export function MerchantDashboard({ section }: { section: MerchantDashboardSection }) {
   const [mounted, setMounted] = useState(false);
   const [authSession, setAuthSession] = useState<ReturnType<typeof readAuthSession>>(null);
   const [form, setForm] = useState(initialForm);
@@ -116,23 +122,36 @@ export function MerchantDashboard() {
   const [selectedContentId, setSelectedContentId] = useState("");
   const [contentDetail, setContentDetail] = useState<Awaited<ReturnType<typeof fetchContentDetail>> | null>(null);
   const [contentAssets, setContentAssets] = useState<ContentPreviewAsset[]>([]);
-  const [contentActionMessage, setContentActionMessage] = useState("생성된 콘텐츠를 선택하면 점주가 직접 승인과 발행을 처리할 수 있습니다.");
+  const [variantAssets, setVariantAssets] = useState<ContentPreviewAsset[]>([]);
+  const [selectedVariantAssetId, setSelectedVariantAssetId] = useState("");
+  const [contentActionMessage, setContentActionMessage] = useState("콘텐츠를 선택하면 점주가 직접 운영 액션을 처리할 수 있습니다.");
   const [pendingContents, setPendingContents] = useState<Awaited<ReturnType<typeof listContents>>["items"]>([]);
   const [selectedReviewId, setSelectedReviewId] = useState("");
   const [reviewQueue, setReviewQueue] = useState<Awaited<ReturnType<typeof listReviews>>["items"]>([]);
   const [reviewDetail, setReviewDetail] = useState<Awaited<ReturnType<typeof fetchReviewDetail>> | null>(null);
   const [reviewReplyText, setReviewReplyText] = useState("");
-  const [reviewActionMessage, setReviewActionMessage] = useState("민감 리뷰도 점주 화면에서 직접 검토합니다.");
+  const [reviewActionMessage, setReviewActionMessage] = useState("리뷰 답글 검토 화면입니다.");
   const [jobs, setJobs] = useState<Awaited<ReturnType<typeof listJobs>>["items"]>([]);
   const [reports, setReports] = useState<Awaited<ReturnType<typeof listReports>>["items"]>([]);
   const [publishResults, setPublishResults] = useState<Awaited<ReturnType<typeof listPublishResults>>["items"]>([]);
-  const [reportMessage, setReportMessage] = useState("월간 리포트를 생성하면 점주 기준 최근 작업이 누적됩니다.");
+  const [reportMessage, setReportMessage] = useState("월간 리포트 생성 요청도 여기서 바로 보낼 수 있습니다.");
   const [isRefreshingOps, setIsRefreshingOps] = useState(false);
+  const [nanoBananaApiKey, setNanoBananaApiKey] = useState("");
+  const [nanoBananaMaskedKey, setNanoBananaMaskedKey] = useState<string | null>(null);
+  const [nanoBananaMessage, setNanoBananaMessage] = useState("Nano Banana API 키를 저장하면 draft 생성과 동시에 1차 이미지 생성이 시작됩니다.");
+  const [isLoadingNanoBanana, setIsLoadingNanoBanana] = useState(false);
+  const [isSavingNanoBanana, setIsSavingNanoBanana] = useState(false);
+  const [isRegeneratingImage, setIsRegeneratingImage] = useState(false);
+  const [overlayHeadline, setOverlayHeadline] = useState("");
+  const [overlaySubheadline, setOverlaySubheadline] = useState("");
+  const [overlayCta, setOverlayCta] = useState("");
+  const [overlayMessage, setOverlayMessage] = useState("생성 이미지 위에 올릴 텍스트를 따로 편집할 수 있습니다.");
+  const [isSavingOverlay, setIsSavingOverlay] = useState(false);
 
-  const parsedMustInclude = splitTokens(form.mustInclude);
-  const parsedMustAvoid = splitTokens(form.mustAvoid);
+  const parsedMustInclude = useMemo(() => splitTokens(form.mustInclude), [form.mustInclude]);
+  const parsedMustAvoid = useMemo(() => splitTokens(form.mustAvoid), [form.mustAvoid]);
   const canSubmit = form.merchantId.trim().length > 0 && form.inputBrief.trim().length >= 10;
-  const canEnableVariant = assets.length > 0;
+  const canEnableVariant = assets.length > 0 && Boolean(nanoBananaMaskedKey);
 
   useEffect(() => {
     setMounted(true);
@@ -144,44 +163,27 @@ export function MerchantDashboard() {
   }, []);
 
   useEffect(() => {
-    if (!mounted) {
-      return;
-    }
-    async function bootstrap() {
-      const latestContentId =
-        typeof window !== "undefined" ? window.localStorage.getItem("harness.latestContentId") ?? "" : "";
-      if (latestContentId) {
-        setSelectedContentId(latestContentId);
-        try {
-          const detail = await fetchContentDetail(latestContentId, form.merchantId);
-          setContentDetail(detail);
-        } catch (error) {
-          setContentActionMessage(error instanceof Error ? error.message : "콘텐츠 상세를 불러오지 못했습니다.");
-        }
-      }
-      setIsRefreshingOps(true);
-      try {
-        const [contents, reviews, jobItems, reportItems, publishItems] = await Promise.all([
-          listContents({ merchantId: form.merchantId }),
-          listReviews({ merchantId: form.merchantId }),
-          listJobs({ merchantId: form.merchantId }),
-          listReports({ scopeType: "merchant", scopeId: form.merchantId }),
-          listPublishResults(form.merchantId),
-        ]);
-        setPendingContents(contents.items);
-        setReviewQueue(reviews.items);
-        setJobs(jobItems.items);
-        setReports(reportItems.items);
-        setPublishResults(publishItems.items);
-      } catch (error) {
-        setSubmitMessage(error instanceof Error ? error.message : "점주 작업 데이터를 불러오지 못했습니다.");
-      } finally {
-        setIsRefreshingOps(false);
-      }
-    }
+    return () => {
+      revokePreviewAssets(contentAssets);
+      revokePreviewAssets(variantAssets);
+    };
+  }, [contentAssets, variantAssets]);
 
-    void bootstrap();
-  }, [form.merchantId, mounted]);
+  const buildPreviewAssets = useCallback(async (assetIds: string[]) => {
+    return Promise.all(
+      assetIds.map(async (assetId) => {
+        const asset = await fetchAssetDetail(assetId, form.merchantId);
+        let objectUrl: string | null = null;
+        try {
+          const binary = await fetchAssetBinary(assetId, form.merchantId);
+          objectUrl = URL.createObjectURL(binary);
+        } catch {
+          objectUrl = null;
+        }
+        return { ...asset, objectUrl };
+      }),
+    );
+  }, [form.merchantId]);
 
   async function loadOperations() {
     setIsRefreshingOps(true);
@@ -199,36 +201,32 @@ export function MerchantDashboard() {
       setReports(reportItems.items);
       setPublishResults(publishItems.items);
     } catch (error) {
-      setSubmitMessage(error instanceof Error ? error.message : "점주 작업 데이터를 불러오지 못했습니다.");
+      setSubmitMessage(error instanceof Error ? error.message : "운영 데이터를 새로고침하지 못했습니다.");
     } finally {
       setIsRefreshingOps(false);
     }
   }
 
-  async function loadContentDetail(contentId: string) {
+  const loadContentDetail = useCallback(async (contentId: string) => {
     try {
       const detail = await fetchContentDetail(contentId, form.merchantId);
-      const assetDetails = await Promise.all(
-        detail.uploaded_asset_ids.map(async (assetId) => {
-          const asset = await fetchAssetDetail(assetId, form.merchantId);
-          let objectUrl: string | null = null;
-          try {
-            const binary = await fetchAssetBinary(assetId, form.merchantId);
-            objectUrl = URL.createObjectURL(binary);
-          } catch {
-            objectUrl = null;
-          }
-          return { ...asset, objectUrl };
-        }),
-      );
+      const [sourceAssets, generatedAssets] = await Promise.all([
+        buildPreviewAssets(detail.uploaded_asset_ids),
+        buildPreviewAssets(detail.variant_asset_ids ?? []),
+      ]);
+
       setContentAssets((current) => {
-        current.forEach((asset) => {
-          if (asset.objectUrl) {
-            URL.revokeObjectURL(asset.objectUrl);
-          }
-        });
-        return assetDetails;
+        revokePreviewAssets(current);
+        return sourceAssets;
       });
+      setVariantAssets((current) => {
+        revokePreviewAssets(current);
+        return generatedAssets;
+      });
+      setSelectedVariantAssetId(detail.selected_variant_asset_id ?? generatedAssets[0]?.asset_id ?? "");
+      setOverlayHeadline(detail.overlay_headline ?? "");
+      setOverlaySubheadline(detail.overlay_subheadline ?? "");
+      setOverlayCta(detail.overlay_cta ?? "");
       setContentDetail(detail);
       setSelectedContentId(contentId);
       if (typeof window !== "undefined") {
@@ -236,7 +234,82 @@ export function MerchantDashboard() {
       }
     } catch (error) {
       setContentAssets([]);
+      setVariantAssets([]);
+      setSelectedVariantAssetId("");
       setContentActionMessage(error instanceof Error ? error.message : "콘텐츠 상세를 불러오지 못했습니다.");
+    }
+  }, [buildPreviewAssets, form.merchantId]);
+
+  useEffect(() => {
+    if (!mounted || !form.merchantId) {
+      return;
+    }
+
+    async function bootstrap() {
+      const latestContentId =
+        typeof window !== "undefined" ? window.localStorage.getItem("harness.latestContentId") ?? "" : "";
+
+      setIsRefreshingOps(true);
+      try {
+        const [contents, reviews, jobItems, reportItems, publishItems] = await Promise.all([
+          listContents({ merchantId: form.merchantId }),
+          listReviews({ merchantId: form.merchantId }),
+          listJobs({ merchantId: form.merchantId }),
+          listReports({ scopeType: "merchant", scopeId: form.merchantId }),
+          listPublishResults(form.merchantId),
+        ]);
+        setPendingContents(contents.items);
+        setReviewQueue(reviews.items);
+        setJobs(jobItems.items);
+        setReports(reportItems.items);
+        setPublishResults(publishItems.items);
+
+        if (latestContentId) {
+          await loadContentDetail(latestContentId);
+        }
+      } catch (error) {
+        setSubmitMessage(error instanceof Error ? error.message : "운영 데이터를 불러오지 못했습니다.");
+      } finally {
+        setIsRefreshingOps(false);
+      }
+    }
+
+    async function loadNanoBananaSetting() {
+      setIsLoadingNanoBanana(true);
+      try {
+        const setting = await fetchMerchantNanoBananaSetting(form.merchantId);
+        setNanoBananaMaskedKey(setting.masked_api_key ?? null);
+        setNanoBananaMessage(
+          setting.has_api_key
+            ? `저장된 키: ${setting.masked_api_key ?? "마스킹 처리됨"}`
+            : "아직 저장된 Nano Banana API 키가 없습니다.",
+        );
+      } catch (error) {
+        setNanoBananaMessage(error instanceof Error ? error.message : "Nano Banana API 설정을 불러오지 못했습니다.");
+      } finally {
+        setIsLoadingNanoBanana(false);
+      }
+    }
+
+    void bootstrap();
+    void loadNanoBananaSetting();
+  }, [form.merchantId, loadContentDetail, mounted]);
+
+  async function handleSaveNanoBananaSetting() {
+    if (!nanoBananaApiKey.trim()) {
+      setNanoBananaMessage("저장할 Nano Banana API 키를 입력하세요.");
+      return;
+    }
+    setIsSavingNanoBanana(true);
+    try {
+      const saved = await saveMerchantNanoBananaSetting(form.merchantId, nanoBananaApiKey.trim());
+      setNanoBananaMaskedKey(saved.masked_api_key ?? null);
+      setNanoBananaApiKey("");
+      setNanoBananaMessage(`저장 완료: ${saved.masked_api_key ?? "마스킹 처리됨"}`);
+    } catch (error) {
+      setNanoBananaMessage(error instanceof Error ? error.message : "Nano Banana API 설정을 저장하지 못했습니다.");
+    } finally {
+      setIsSavingNanoBanana(false);
     }
   }
 
@@ -245,10 +318,8 @@ export function MerchantDashboard() {
     if (files.length === 0) {
       return;
     }
-
     setIsUploading(true);
-    setSubmitMessage("업로드 자산을 등록하는 중입니다.");
-
+    setSubmitMessage("이미지 자산을 업로드하는 중입니다.");
     try {
       const uploaded = await Promise.all(
         files.map(async (file) => {
@@ -259,25 +330,21 @@ export function MerchantDashboard() {
             sizeBytes: file.size,
           });
           const upload = await uploadAssetBinary(asset.assetId, file, form.merchantId);
-
           return {
             assetId: asset.assetId,
             filename: file.name,
             contentType: file.type || "image/jpeg",
             sizeBytes: file.size,
             status: upload.status,
-            previewUrl: upload.previewUrl,
             localPreviewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
           };
         }),
       );
-
       setAssets((current) => [...current, ...uploaded]);
-      setSubmitMessage(`${uploaded.length}개 자산 업로드를 완료했습니다. draft 생성으로 진행할 수 있습니다.`);
+      setSubmitMessage(`${uploaded.length}개 자산 업로드를 완료했습니다.`);
       await loadOperations();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "이미지 자산 등록에 실패했습니다.";
-      setSubmitMessage(message);
+      setSubmitMessage(error instanceof Error ? error.message : "이미지 자산 등록에 실패했습니다.");
     } finally {
       setIsUploading(false);
       event.target.value = "";
@@ -296,11 +363,15 @@ export function MerchantDashboard() {
 
   async function handleSubmit() {
     if (!canSubmit) {
-      setSubmitMessage("강조 내용과 점포 정보를 먼저 확인해 주세요.");
+      setSubmitMessage("브리프와 점포 정보를 먼저 확인하세요.");
       return;
     }
-    if (form.applyImageVariant && !canEnableVariant) {
-      setSubmitMessage("이미지 변형을 사용하려면 먼저 이미지를 등록해야 합니다.");
+    if (form.applyImageVariant && !nanoBananaMaskedKey) {
+      setSubmitMessage("이미지 생성을 사용하려면 먼저 Nano Banana API 키를 저장하세요.");
+      return;
+    }
+    if (form.applyImageVariant && assets.length === 0) {
+      setSubmitMessage("이미지 생성을 사용하려면 먼저 원본 이미지를 업로드하세요.");
       return;
     }
 
@@ -321,7 +392,6 @@ export function MerchantDashboard() {
         imageVariantProvider: form.applyImageVariant ? form.imageVariantProvider : "none",
         publishMode: form.publishMode,
       });
-
       const draftRecord: DraftRecord = {
         contentId: response.contentId,
         status: response.status,
@@ -330,73 +400,45 @@ export function MerchantDashboard() {
         targetCountry: form.targetCountry,
         createdAt: new Date().toLocaleString("ko-KR"),
       };
-
-      setContentStatus(response.status);
       setDrafts((current) => [draftRecord, ...current].slice(0, 5));
+      setContentStatus(response.status);
       setSelectedContentId(response.contentId);
       setSubmitMessage(response.message);
       await loadOperations();
       await loadContentDetail(response.contentId);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "초안 생성 요청에 실패했습니다.";
-      setSubmitMessage(message);
+      setSubmitMessage(error instanceof Error ? error.message : "draft 생성에 실패했습니다.");
     } finally {
       setIsSubmitting(false);
     }
   }
 
   async function handleApproveContent() {
-    if (!contentDetail) {
-      setContentActionMessage("먼저 콘텐츠를 선택해 주세요.");
-      return;
-    }
-
+    if (!contentDetail) return;
     try {
-      await approveContent(
-        contentDetail.content_id,
-        {
-          approverId: authSession?.userId ?? "merchant_owner",
-          comment: "점주 확인 완료",
-        },
-        form.merchantId,
-      );
-      setContentActionMessage("점주 승인 완료");
+      await approveContent(contentDetail.content_id, { approverId: authSession?.userId ?? "merchant_owner", comment: "ok" }, form.merchantId);
+      setContentActionMessage("콘텐츠 승인 완료");
       await loadOperations();
       await loadContentDetail(contentDetail.content_id);
     } catch (error) {
-      setContentActionMessage(error instanceof Error ? error.message : "콘텐츠 승인에 실패했습니다.");
+      setContentActionMessage(error instanceof Error ? error.message : "콘텐츠 승인 실패");
     }
   }
 
   async function handleRejectContent() {
-    if (!contentDetail) {
-      setContentActionMessage("먼저 콘텐츠를 선택해 주세요.");
-      return;
-    }
-
+    if (!contentDetail) return;
     try {
-      await rejectContent(
-        contentDetail.content_id,
-        {
-          reviewerId: authSession?.userId ?? "merchant_owner",
-          reason: "점주 검토 후 수정 필요",
-        },
-        form.merchantId,
-      );
-      setContentActionMessage("점주 반려 완료");
+      await rejectContent(contentDetail.content_id, { reviewerId: authSession?.userId ?? "merchant_owner", reason: "수정 필요" }, form.merchantId);
+      setContentActionMessage("콘텐츠 반려 완료");
       await loadOperations();
       await loadContentDetail(contentDetail.content_id);
     } catch (error) {
-      setContentActionMessage(error instanceof Error ? error.message : "콘텐츠 반려에 실패했습니다.");
+      setContentActionMessage(error instanceof Error ? error.message : "콘텐츠 반려 실패");
     }
   }
 
   async function handlePublishContent() {
-    if (!contentDetail) {
-      setContentActionMessage("먼저 콘텐츠를 선택해 주세요.");
-      return;
-    }
-
+    if (!contentDetail) return;
     try {
       const response = await publishContent(
         contentDetail.content_id,
@@ -404,69 +446,88 @@ export function MerchantDashboard() {
           applyImageVariant: contentDetail.apply_image_variant,
           imageVariantProvider: contentDetail.image_variant_provider,
           sourceAssetIds: contentDetail.uploaded_asset_ids,
+          selectedVariantAssetId,
         },
         form.merchantId,
       );
-      setContentActionMessage(`발행 예약 완료: ${response.job_id}`);
+      setContentActionMessage(`발행 요청 완료: ${response.job_id}`);
       await loadOperations();
       await loadContentDetail(contentDetail.content_id);
     } catch (error) {
-      setContentActionMessage(error instanceof Error ? error.message : "콘텐츠 발행에 실패했습니다.");
+      setContentActionMessage(error instanceof Error ? error.message : "콘텐츠 발행 실패");
     }
   }
 
   async function handleDeleteContent(contentId?: string) {
     const targetContentId = contentId ?? contentDetail?.content_id;
-    if (!targetContentId) {
-      setContentActionMessage("먼저 콘텐츠를 선택해 주세요.");
-      return;
-    }
-
-    const targetStatus =
-      contentId && contentDetail?.content_id !== contentId
-        ? pendingContents.find((item) => item.content_id === contentId)?.status
-        : contentDetail?.status;
-
-    if (targetStatus && targetStatus !== "draft") {
-      setContentActionMessage("draft 상태의 초안만 삭제할 수 있습니다.");
-      return;
-    }
-
-    if (typeof window !== "undefined" && !window.confirm("이 초안을 삭제할까요? 삭제 후 복구할 수 없습니다.")) {
-      return;
-    }
-
+    if (!targetContentId) return;
     try {
       const response = await deleteContent(targetContentId, form.merchantId);
       setContentActionMessage(response.message);
-      setDrafts((current) => current.filter((item) => item.contentId !== targetContentId));
+      await loadOperations();
       if (selectedContentId === targetContentId) {
-        setSelectedContentId("");
         setContentDetail(null);
         setContentAssets([]);
-        if (typeof window !== "undefined") {
-          window.localStorage.removeItem("harness.latestContentId");
-        }
+        setVariantAssets([]);
+        setSelectedVariantAssetId("");
       }
-      await loadOperations();
     } catch (error) {
-      setContentActionMessage(error instanceof Error ? error.message : "콘텐츠 삭제에 실패했습니다.");
+      setContentActionMessage(error instanceof Error ? error.message : "콘텐츠 삭제 실패");
+    }
+  }
+
+  async function handleRegenerateImage() {
+    if (!contentDetail) return;
+    setIsRegeneratingImage(true);
+    try {
+      const response = await regenerateContentImage(contentDetail.content_id, contentDetail.uploaded_asset_ids, form.merchantId);
+      setSelectedVariantAssetId(response.selected_variant_asset_id ?? response.variant_asset_ids[0] ?? "");
+      setOverlayMessage("이미지를 다시 생성했습니다. 마음에 드는 후보를 선택하세요.");
+      await loadContentDetail(contentDetail.content_id);
+    } catch (error) {
+      setOverlayMessage(error instanceof Error ? error.message : "이미지 재생성 실패");
+    } finally {
+      setIsRegeneratingImage(false);
+    }
+  }
+
+  async function handleSaveOverlay() {
+    if (!contentDetail) return;
+    setIsSavingOverlay(true);
+    try {
+      const response = await updateContentOverlay(
+        contentDetail.content_id,
+        {
+          selectedVariantAssetId,
+          overlayHeadline,
+          overlaySubheadline,
+          overlayCta,
+        },
+        form.merchantId,
+      );
+      setSelectedVariantAssetId(response.selected_variant_asset_id ?? "");
+      setOverlayMessage("오버레이 텍스트 저장 완료");
+      await loadContentDetail(contentDetail.content_id);
+    } catch (error) {
+      setOverlayMessage(error instanceof Error ? error.message : "오버레이 저장 실패");
+    } finally {
+      setIsSavingOverlay(false);
     }
   }
 
   async function handleSelectReview(reviewId: string) {
-    const selected = await fetchReviewDetail(reviewId, form.merchantId);
-    setSelectedReviewId(reviewId);
-    setReviewDetail(selected);
-    setReviewReplyText(selected.reply_draft);
+    try {
+      const selected = await fetchReviewDetail(reviewId, form.merchantId);
+      setSelectedReviewId(reviewId);
+      setReviewDetail(selected);
+      setReviewReplyText(selected.reply_draft);
+    } catch (error) {
+      setReviewActionMessage(error instanceof Error ? error.message : "리뷰 조회 실패");
+    }
   }
 
   async function handleApproveReview() {
-    if (!selectedReviewId) {
-      setReviewActionMessage("먼저 리뷰를 선택해 주세요.");
-      return;
-    }
-
+    if (!selectedReviewId) return;
     try {
       const response = await approveReviewReply(
         selectedReviewId,
@@ -479,7 +540,7 @@ export function MerchantDashboard() {
       setReviewActionMessage(`답글 승인 완료: ${response.review_id}`);
       await loadOperations();
     } catch (error) {
-      setReviewActionMessage(error instanceof Error ? error.message : "리뷰 답글 승인에 실패했습니다.");
+      setReviewActionMessage(error instanceof Error ? error.message : "답글 승인 실패");
     }
   }
 
@@ -494,7 +555,7 @@ export function MerchantDashboard() {
       setReportMessage(`월간 리포트 생성 요청 완료: ${response.report_id}`);
       await loadOperations();
     } catch (error) {
-      setReportMessage(error instanceof Error ? error.message : "리포트 생성에 실패했습니다.");
+      setReportMessage(error instanceof Error ? error.message : "리포트 생성 실패");
     }
   }
 
@@ -504,12 +565,8 @@ export function MerchantDashboard() {
         <section className={styles.shell}>
           <article className={styles.panel}>
             <p className={styles.cardLabel}>Merchant Access</p>
-            <h1 className={styles.panelTitle}>{mounted ? "점주 계정으로 로그인해야 합니다." : "점주 화면을 준비하는 중입니다."}</h1>
-            <p className={styles.notice}>
-              {mounted
-                ? "`test2@email.com`, `test3@email.com`, `test4@email.com` 중 하나로 로그인한 뒤 다시 들어오세요."
-                : "세션을 확인하고 있습니다."}
-            </p>
+            <h1 className={styles.panelTitle}>점주 계정으로 로그인해야 합니다.</h1>
+            <p className={styles.notice}>`test2@email.com`, `test3@email.com`, `test4@email.com` 중 하나로 로그인한 뒤 다시 들어오세요.</p>
             <div className={styles.actions}>
               <Link href="/" className={styles.secondaryLink}>
                 홈으로 이동
@@ -521,68 +578,38 @@ export function MerchantDashboard() {
     );
   }
 
+  const selectedVariantAsset = variantAssets.find((asset) => asset.asset_id === selectedVariantAssetId) ?? variantAssets[0] ?? null;
+
   return (
     <main className={styles.page}>
       <section className={styles.shell}>
         <header className={styles.hero}>
           <div className={styles.heroCopy}>
             <p className={styles.eyebrow}>Merchant Workspace</p>
-            <h1 className={styles.heroTitle}>점주용 운영 화면</h1>
+            <h1 className={styles.heroTitle}>{titleForSection(section)}</h1>
             <p className={styles.heroDescription}>
-              점주는 콘텐츠 생성부터 승인, 반려, 발행, 리뷰 답글 승인, 리포트 요청까지 모두 이 화면에서 처리한다.
+              draft 생성 시점에 1차 이미지를 만들고, 이후 오버레이 텍스트는 별도 편집 화면에서 관리합니다.
             </p>
-            <p className={styles.heroDescription}>
-              현재 로그인: {authSession?.displayName ?? "미로그인"} {authSession?.merchantName ? `· ${authSession.merchantName}` : ""}
-            </p>
+            <p className={styles.heroDescription}>현재 로그인: {authSession.displayName} / {authSession.email}</p>
           </div>
-          <nav className={styles.heroActions}>
-            <Link href="/" className={styles.secondaryLink}>
-              홈
-            </Link>
-            <Link href="/admin" className={styles.secondaryLink}>
-              관리자 화면
-            </Link>
-          </nav>
+          <div className={styles.heroActions}>
+            <span className={styles.helperBadge}>merchant</span>
+            <span className={styles.statusBadge}>{contentStatus}</span>
+          </div>
         </header>
 
-        <section className={styles.layout}>
-          <div className={styles.mainColumn}>
+        {section === "compose" ? (
+          <>
             <article className={styles.panel}>
               <div className={styles.panelHeader}>
                 <div>
-                  <p className={styles.cardLabel}>Workflow</p>
-                  <h2 className={styles.panelTitle}>입력 {"->"} 점주 승인 {"->"} 점주 발행</h2>
+                  <p className={styles.cardLabel}>Draft Builder</p>
+                  <h2 className={styles.panelTitle}>원본 업로드와 1차 이미지 생성</h2>
                 </div>
-                <span className={styles.statusBadge}>{contentStatus}</span>
               </div>
-
-              <div className={styles.workflowGrid}>
-                {workflowSteps.map(([step, title, detail]) => (
-                  <div key={title} className={styles.workflowCard}>
-                    <span className={styles.stepToken}>{step}</span>
-                    <strong className={styles.workflowTitle}>{title}</strong>
-                    <p className={styles.cardDescription}>{detail}</p>
-                  </div>
-                ))}
-              </div>
-            </article>
-
-            <article className={styles.panel}>
-              <div className={styles.panelHeader}>
-                <div>
-                  <p className={styles.cardLabel}>Content Request</p>
-                  <h2 className={styles.panelTitle}>점주 입력 폼</h2>
-                </div>
-                <span className={styles.helperBadge}>{isUploading ? "uploading" : "ready"}</span>
-              </div>
-
               <div className={styles.formGrid}>
                 <Field label="대상 국가">
-                  <select
-                    value={form.targetCountry}
-                    onChange={(event) => setForm({ ...form, targetCountry: event.target.value })}
-                    className={styles.input}
-                  >
+                  <select value={form.targetCountry} onChange={(event) => setForm({ ...form, targetCountry: event.target.value })} className={styles.input}>
                     <option value="JP">일본</option>
                     <option value="US">미국</option>
                     <option value="CN">중국</option>
@@ -590,301 +617,288 @@ export function MerchantDashboard() {
                     <option value="HK">홍콩</option>
                   </select>
                 </Field>
-
                 <Field label="플랫폼">
-                  <select
-                    value={form.platform}
-                    onChange={(event) => setForm({ ...form, platform: event.target.value })}
-                    className={styles.input}
-                  >
+                  <select value={form.platform} onChange={(event) => setForm({ ...form, platform: event.target.value })} className={styles.input}>
                     <option value="instagram">Instagram</option>
                     <option value="google_business">Google Business</option>
                     <option value="blog">Blog</option>
                     <option value="xiaohongshu">Xiaohongshu</option>
                   </select>
                 </Field>
-
                 <Field label="목표">
-                  <select
-                    value={form.goal}
-                    onChange={(event) => setForm({ ...form, goal: event.target.value })}
-                    className={styles.input}
-                  >
-                    <option value="store_visit">매장 방문 유도</option>
-                    <option value="awareness">인지도 확산</option>
+                  <select value={form.goal} onChange={(event) => setForm({ ...form, goal: event.target.value })} className={styles.input}>
+                    <option value="store_visit">매장 방문</option>
+                    <option value="awareness">인지도</option>
                     <option value="seasonal_promotion">시즌 프로모션</option>
-                    <option value="review_response">리뷰 유입 보조</option>
+                    <option value="review_response">리뷰 대응</option>
                   </select>
                 </Field>
-
                 <Field label="톤">
-                  <select
-                    value={form.tone}
-                    onChange={(event) => setForm({ ...form, tone: event.target.value })}
-                    className={styles.input}
-                  >
-                    <option value="friendly">친근한 느낌</option>
-                    <option value="professional">신뢰감 있는 느낌</option>
-                    <option value="trendy">감각적인 느낌</option>
-                    <option value="calm">차분한 느낌</option>
+                  <select value={form.tone} onChange={(event) => setForm({ ...form, tone: event.target.value })} className={styles.input}>
+                    <option value="friendly">친근함</option>
+                    <option value="professional">전문적</option>
+                    <option value="trendy">트렌디</option>
+                    <option value="calm">차분함</option>
                   </select>
                 </Field>
-
-                <Field label="홈페이지 URL" wide>
-                  <input
-                    value={form.websiteUrl}
-                    onChange={(event) => setForm({ ...form, websiteUrl: event.target.value })}
-                    className={styles.input}
-                    placeholder="https://example.com"
-                  />
+                <Field label="웹사이트 URL" wide>
+                  <input value={form.websiteUrl} onChange={(event) => setForm({ ...form, websiteUrl: event.target.value })} className={styles.input} />
                 </Field>
-
-                <Field label="강조 내용" wide>
-                  <textarea
-                    value={form.inputBrief}
-                    onChange={(event) => setForm({ ...form, inputBrief: event.target.value })}
-                    className={styles.textarea}
-                    rows={4}
-                  />
+                <Field label="브리프" wide>
+                  <textarea value={form.inputBrief} onChange={(event) => setForm({ ...form, inputBrief: event.target.value })} className={styles.textarea} rows={4} />
                 </Field>
-
-                <Field label="꼭 포함할 표현">
-                  <input
-                    value={form.mustInclude}
-                    onChange={(event) => setForm({ ...form, mustInclude: event.target.value })}
-                    className={styles.input}
-                  />
+                <Field label="반드시 포함">
+                  <input value={form.mustInclude} onChange={(event) => setForm({ ...form, mustInclude: event.target.value })} className={styles.input} />
                 </Field>
-
                 <Field label="피해야 할 표현">
-                  <input
-                    value={form.mustAvoid}
-                    onChange={(event) => setForm({ ...form, mustAvoid: event.target.value })}
-                    className={styles.input}
-                  />
+                  <input value={form.mustAvoid} onChange={(event) => setForm({ ...form, mustAvoid: event.target.value })} className={styles.input} />
                 </Field>
-
-                <Field label="이미지 업로드" wide hint="현재 단계에서는 파일 메타데이터를 upload-init으로 등록합니다.">
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    multiple
-                    onChange={handleFileChange}
-                    className={styles.fileInput}
-                  />
+                <Field label="원본 이미지 업로드" wide hint="draft 생성과 동시에 Nano Banana 1차 이미지 생성에 사용됩니다.">
+                  <input type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={handleFileChange} className={styles.fileInput} />
                 </Field>
               </div>
-
+              <div className={styles.assetPanel}>
+                <div className={styles.assetHeader}>
+                  <div>
+                    <p className={styles.cardLabel}>Nano Banana</p>
+                    <h3 className={styles.assetTitle}>API 키 설정</h3>
+                  </div>
+                  <span className={styles.assetCount}>{nanoBananaMaskedKey ? "saved" : "empty"}</span>
+                </div>
+                <Field label="Nano Banana API Key" wide hint="프론트에는 마스킹된 값만 표시됩니다.">
+                  <input type="password" value={nanoBananaApiKey} onChange={(event) => setNanoBananaApiKey(event.target.value)} className={styles.input} placeholder="nb_..." />
+                </Field>
+                <label className={styles.variantToggle}>
+                  <input
+                    type="checkbox"
+                    checked={form.applyImageVariant}
+                    disabled={!canEnableVariant}
+                    onChange={(event) => setForm({ ...form, applyImageVariant: event.target.checked, imageVariantProvider: event.target.checked ? "nano_banana" : "none" })}
+                  />
+                  <div>
+                    <strong>draft 생성 시 1차 이미지 생성</strong>
+                    <p className={styles.variantDescription}>원본 이미지 기반으로 먼저 이미지를 만들고, 텍스트는 다음 단계에서 별도로 편집합니다.</p>
+                  </div>
+                </label>
+                <div className={styles.actions}>
+                  <button type="button" onClick={handleSaveNanoBananaSetting} className={styles.primaryButton} disabled={isSavingNanoBanana || !nanoBananaApiKey.trim()}>
+                    {isSavingNanoBanana ? "saving..." : "API 키 저장"}
+                  </button>
+                </div>
+                <div className={styles.notice}>{nanoBananaMessage}</div>
+              </div>
               <div className={styles.assetPanel}>
                 <div className={styles.assetHeader}>
                   <div>
                     <p className={styles.cardLabel}>Registered Assets</p>
-                    <h3 className={styles.assetTitle}>현재 등록된 이미지 자산</h3>
+                    <h3 className={styles.assetTitle}>업로드한 원본 이미지</h3>
                   </div>
-                  <span className={styles.assetCount}>{assets.length}건</span>
+                  <span className={styles.assetCount}>{assets.length}개</span>
                 </div>
-
                 {assets.length > 0 ? (
                   <div className={styles.assetList}>
                     {assets.map((asset) => (
                       <div key={asset.assetId} className={styles.assetCard}>
                         <div>
                           <strong className={styles.assetName}>{asset.filename}</strong>
-                          <p className={styles.assetMeta}>
-                            {asset.assetId} · {asset.contentType} · {formatBytes(asset.sizeBytes)} · {asset.status}
-                          </p>
+                          <p className={styles.assetMeta}>{asset.assetId} / {asset.contentType} / {formatBytes(asset.sizeBytes)} / {asset.status}</p>
                           {asset.localPreviewUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={asset.localPreviewUrl} alt={asset.filename} className={styles.assetPreview} />
                           ) : null}
                         </div>
-                        <button type="button" onClick={() => removeAsset(asset.assetId)} className={styles.ghostButton}>
-                          제거
-                        </button>
+                        <button type="button" onClick={() => removeAsset(asset.assetId)} className={styles.ghostButton}>제거</button>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className={styles.emptyState}>등록된 이미지가 없습니다.</p>
+                  <p className={styles.emptyState}>업로드한 원본 이미지가 없습니다.</p>
                 )}
-
-                <label className={styles.variantToggle}>
-                  <input
-                    type="checkbox"
-                    checked={form.applyImageVariant}
-                    disabled={!canEnableVariant}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        applyImageVariant: event.target.checked,
-                        imageVariantProvider: event.target.checked ? "nano_banana" : "none",
-                      })
-                    }
-                  />
-                  <div>
-                    <strong>발행 시 이미지 변형 사용</strong>
-                    <p className={styles.variantDescription}>
-                      등록된 원본 자산을 기준으로 variant 이미지를 추가 생성한다.
-                    </p>
-                  </div>
-                </label>
               </div>
-
               <div className={styles.notice}>{submitMessage}</div>
               <div className={styles.actions}>
                 <button type="button" onClick={handleSubmit} className={styles.primaryButton} disabled={!canSubmit || isSubmitting}>
                   {isSubmitting ? "생성 중..." : "draft 생성"}
                 </button>
+              </div>
+            </article>
+          </>
+        ) : null}
+
+        {section === "content" ? (
+          <article className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <div>
+                <p className={styles.cardLabel}>Content Ops</p>
+                <h2 className={styles.panelTitle}>생성 이미지 검토와 재생성</h2>
+              </div>
+            </div>
+            <div className={styles.queueList}>
+              {pendingContents.map((item) => (
+                <button key={item.content_id} type="button" className={styles.queueCard} onClick={() => void loadContentDetail(item.content_id)}>
+                  <strong>{item.content_id}</strong>
+                  <span>{item.platform}</span>
+                  <span>{item.status}</span>
+                </button>
+              ))}
+            </div>
+            {contentDetail ? (
+              <div className={styles.operationPanel}>
+                <div className={styles.summaryGrid}>
+                  <span>상태: {contentDetail.status}</span>
+                  <span>플랫폼: {contentDetail.platform}</span>
+                  <span>원본 자산 수: {contentDetail.uploaded_asset_ids.length}</span>
+                  <span>생성 자산 수: {contentDetail.variant_asset_ids?.length ?? 0}</span>
+                </div>
+                <div className={styles.comparePanel}>
+                  <CompareColumn title="Original Image" assets={contentAssets} emptyText="원본 이미지가 없습니다." />
+                  <CompareColumn
+                    title="Generated Image"
+                    assets={variantAssets}
+                    emptyText="생성 이미지가 없습니다."
+                    selectedVariantAssetId={selectedVariantAssetId}
+                    onSelectVariant={setSelectedVariantAssetId}
+                  />
+                </div>
+                <div className={styles.actions}>
+                  <button type="button" onClick={handleRegenerateImage} className={styles.ghostButton} disabled={isRegeneratingImage}>
+                    {isRegeneratingImage ? "재생성 중..." : "이미지 재생성"}
+                  </button>
+                  <button type="button" onClick={handleApproveContent} className={styles.ghostButton}>승인</button>
+                  <button type="button" onClick={handleRejectContent} className={styles.ghostButton}>반려</button>
+                  <button type="button" onClick={() => void handleDeleteContent()} className={styles.dangerButton} disabled={contentDetail.status !== "draft"}>초안 삭제</button>
+                  <button type="button" onClick={handlePublishContent} className={styles.primaryButton}>발행</button>
+                </div>
+              </div>
+            ) : null}
+            <div className={styles.notice}>{contentActionMessage}</div>
+          </article>
+        ) : null}
+
+        {section === "overlay" ? (
+          <article className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <div>
+                <p className={styles.cardLabel}>Overlay Editor</p>
+                <h2 className={styles.panelTitle}>텍스트 오버레이 편집</h2>
+              </div>
+            </div>
+            <div className={styles.queueList}>
+              {pendingContents.map((item) => (
+                <button key={item.content_id} type="button" className={styles.queueCard} onClick={() => void loadContentDetail(item.content_id)}>
+                  <strong>{item.content_id}</strong>
+                  <span>{item.platform}</span>
+                  <span>{item.status}</span>
+                </button>
+              ))}
+            </div>
+            {contentDetail ? (
+              <div className={styles.operationPanel}>
+                <div className={styles.formGrid}>
+                  <Field label="헤드라인" wide>
+                    <input value={overlayHeadline} onChange={(event) => setOverlayHeadline(event.target.value)} className={styles.input} />
+                  </Field>
+                  <Field label="서브카피" wide>
+                    <textarea value={overlaySubheadline} onChange={(event) => setOverlaySubheadline(event.target.value)} className={styles.textarea} rows={3} />
+                  </Field>
+                  <Field label="CTA" wide>
+                    <input value={overlayCta} onChange={(event) => setOverlayCta(event.target.value)} className={styles.input} />
+                  </Field>
+                </div>
+                <div className={styles.comparePanel}>
+                  <CompareColumn
+                    title="Generated Variants"
+                    assets={variantAssets}
+                    emptyText="생성 이미지가 없습니다."
+                    selectedVariantAssetId={selectedVariantAssetId}
+                    onSelectVariant={setSelectedVariantAssetId}
+                  />
+                  <div className={styles.compareColumn}>
+                    <div className={styles.compareHeader}>
+                      <p className={styles.cardLabel}>Overlay Preview</p>
+                      <strong className={styles.assetName}>텍스트 미리보기</strong>
+                    </div>
+                    <div className={styles.overlayPreview}>
+                      {selectedVariantAsset?.objectUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={selectedVariantAsset.objectUrl} alt={selectedVariantAsset.filename} className={styles.overlayPreviewImage} />
+                      ) : null}
+                      <div className={styles.overlayPreviewShade} />
+                      <div className={styles.overlayPreviewText}>
+                        <h3 className={styles.overlayHeadline}>{overlayHeadline || "헤드라인을 입력하세요"}</h3>
+                        <p className={styles.overlaySubheadline}>{overlaySubheadline || "서브카피를 입력하세요"}</p>
+                        <span className={styles.overlayCta}>{overlayCta || "CTA"}</span>
+                      </div>
+                    </div>
+                    <div className={styles.actions}>
+                      <button type="button" onClick={handleSaveOverlay} className={styles.primaryButton} disabled={isSavingOverlay || !contentDetail}>
+                        {isSavingOverlay ? "저장 중..." : "오버레이 저장"}
+                      </button>
+                      <button type="button" onClick={handleRegenerateImage} className={styles.ghostButton} disabled={isRegeneratingImage}>
+                        {isRegeneratingImage ? "재생성 중..." : "이미지 재생성"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className={styles.notice}>{overlayMessage}</div>
+              </div>
+            ) : null}
+          </article>
+        ) : null}
+
+        {section === "reviews" ? (
+          <article className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <div>
+                <p className={styles.cardLabel}>Review Actions</p>
+                <h2 className={styles.panelTitle}>리뷰 답글 관리</h2>
+              </div>
+            </div>
+            <div className={styles.queueList}>
+              {reviewQueue.map((item) => (
+                <button key={item.review_id} type="button" className={styles.queueCard} onClick={() => void handleSelectReview(item.review_id)}>
+                  <strong>{item.review_id}</strong>
+                  <span>{item.sensitivity}</span>
+                  <span>{item.status}</span>
+                </button>
+              ))}
+            </div>
+            {reviewDetail ? (
+              <div className={styles.operationPanel}>
+                <p className={styles.cardDescription}>{reviewDetail.review_text}</p>
+                <textarea value={reviewReplyText} onChange={(event) => setReviewReplyText(event.target.value)} className={styles.textarea} rows={4} />
+                <div className={styles.actions}>
+                  <button type="button" onClick={handleApproveReview} className={styles.primaryButton}>답글 승인</button>
+                </div>
+              </div>
+            ) : null}
+            <div className={styles.notice}>{reviewActionMessage}</div>
+          </article>
+        ) : null}
+
+        {section === "ops" ? (
+          <>
+            <article className={styles.panel}>
+              <div className={styles.panelHeader}>
+                <div>
+                  <p className={styles.cardLabel}>Operations</p>
+                  <h2 className={styles.panelTitle}>작업과 리포트 현황</h2>
+                </div>
+              </div>
+              <div className={styles.summaryGrid}>
+                <span>작업 수: {jobs.length}</span>
+                <span>리포트 수: {reports.length}</span>
+                <span>발행 결과: {publishResults.length}</span>
+                <span>draft 수: {pendingContents.filter((item) => item.status === "draft").length}</span>
+              </div>
+              <div className={styles.actions}>
+                <button type="button" onClick={handleGenerateReport} className={styles.primaryButton}>월간 리포트 생성</button>
                 <button type="button" onClick={() => void loadOperations()} className={styles.ghostButton} disabled={isRefreshingOps}>
-                  {isRefreshingOps ? "새로고침 중..." : "운영 데이터 새로고침"}
+                  {isRefreshingOps ? "새로고침 중..." : "새로고침"}
                 </button>
               </div>
+              <div className={styles.notice}>{reportMessage}</div>
             </article>
-
-            <article className={styles.panel}>
-              <div className={styles.panelHeader}>
-                <div>
-                  <p className={styles.cardLabel}>Merchant Actions</p>
-                  <h2 className={styles.panelTitle}>점주 승인 및 발행</h2>
-                </div>
-              </div>
-              <div className={styles.queueList}>
-                {pendingContents.length > 0 ? (
-                  pendingContents.map((item) => (
-                    <button
-                      key={item.content_id}
-                      type="button"
-                      className={styles.queueCard}
-                      onClick={() => void loadContentDetail(item.content_id)}
-                    >
-                      <strong>{item.content_id}</strong>
-                      <span>{item.platform}</span>
-                      <span>{item.status}</span>
-                    </button>
-                  ))
-                ) : (
-                  <p className={styles.emptyState}>생성된 콘텐츠가 아직 없습니다.</p>
-                )}
-              </div>
-              {contentDetail ? (
-                <div className={styles.operationPanel}>
-                  <div className={styles.summaryGrid}>
-                    <span>상태: {contentDetail.status}</span>
-                    <span>플랫폼: {contentDetail.platform}</span>
-                    <span>국가: {contentDetail.target_country}</span>
-                    <span>자산 수: {contentDetail.uploaded_asset_ids.length}</span>
-                  </div>
-                  <p className={styles.assetTitle}>{contentDetail.title}</p>
-                  <p className={styles.cardDescription}>{contentDetail.body}</p>
-                  <p className={styles.assetMeta}>hashtags: {contentDetail.hashtags.join(" ")}</p>
-                  {contentAssets.length > 0 ? (
-                    <div className={styles.contentPreviewGrid}>
-                      {contentAssets.map((asset) => (
-                        <div key={asset.asset_id} className={styles.contentPreviewCard}>
-                          {asset.objectUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={asset.objectUrl} alt={asset.filename} className={styles.contentPreviewImage} />
-                          ) : (
-                            <div className={styles.contentPreviewFallback}>NO PREVIEW</div>
-                          )}
-                          <strong className={styles.assetName}>{asset.filename}</strong>
-                          <p className={styles.assetMeta}>
-                            {asset.asset_id} · {asset.status}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                  <div className={styles.actions}>
-                    <button type="button" onClick={handleApproveContent} className={styles.ghostButton}>
-                      점주 승인
-                    </button>
-                    <button type="button" onClick={handleRejectContent} className={styles.ghostButton}>
-                      점주 반려
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleDeleteContent()}
-                      className={styles.dangerButton}
-                      disabled={contentDetail.status !== "draft"}
-                    >
-                      초안 삭제
-                    </button>
-                    <button type="button" onClick={handlePublishContent} className={styles.primaryButton}>
-                      점주 발행
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-              <div className={styles.notice}>{contentActionMessage}</div>
-            </article>
-
-            <article className={styles.panel}>
-              <div className={styles.panelHeader}>
-                <div>
-                  <p className={styles.cardLabel}>Review Actions</p>
-                  <h2 className={styles.panelTitle}>리뷰 답글 승인</h2>
-                </div>
-              </div>
-              <div className={styles.queueList}>
-                {reviewQueue.length > 0 ? (
-                  reviewQueue.map((item) => (
-                    <button
-                      key={item.review_id}
-                      type="button"
-                      className={styles.queueCard}
-                      onClick={() => void handleSelectReview(item.review_id)}
-                    >
-                      <strong>{item.review_id}</strong>
-                      <span>{item.sensitivity}</span>
-                      <span>{item.status}</span>
-                    </button>
-                  ))
-                ) : (
-                  <p className={styles.emptyState}>점주가 검토할 리뷰가 없습니다.</p>
-                )}
-              </div>
-              {reviewDetail ? (
-                <div className={styles.operationPanel}>
-                  <p className={styles.assetTitle}>{reviewDetail.review_id}</p>
-                  <p className={styles.assetMeta}>
-                    {reviewDetail.platform} · 평점 {reviewDetail.rating} · {reviewDetail.language}
-                  </p>
-                  <p className={styles.cardDescription}>{reviewDetail.review_text}</p>
-                  <textarea
-                    value={reviewReplyText}
-                    onChange={(event) => setReviewReplyText(event.target.value)}
-                    className={styles.textarea}
-                    rows={4}
-                    placeholder="답글 초안을 입력하거나 수정하세요."
-                  />
-                  <div className={styles.actions}>
-                    <button type="button" onClick={handleApproveReview} className={styles.primaryButton}>
-                      점주 답글 승인
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-              <div className={styles.notice}>{reviewActionMessage}</div>
-            </article>
-          </div>
-
-          <aside className={styles.sideColumn}>
-            <article className={styles.panel}>
-              <p className={styles.cardLabel}>Input Summary</p>
-              <div className={styles.summaryGrid}>
-                <span>국가: {form.targetCountry}</span>
-                <span>플랫폼: {form.platform}</span>
-                <span>목표: {form.goal}</span>
-                <span>자산 수: {assets.length}</span>
-                <span>포함 표현: {parsedMustInclude.join(", ") || "-"}</span>
-                <span>회피 표현: {parsedMustAvoid.join(", ") || "-"}</span>
-                <span>이미지 변형: {form.applyImageVariant ? form.imageVariantProvider : "사용 안 함"}</span>
-                <span>선택 콘텐츠: {selectedContentId || "-"}</span>
-                <span>계정: {authSession?.email ?? "-"}</span>
-              </div>
-            </article>
-
             <article className={styles.panel}>
               <div className={styles.panelHeader}>
                 <div>
@@ -892,7 +906,6 @@ export function MerchantDashboard() {
                   <h2 className={styles.panelTitle}>최근 생성 결과</h2>
                 </div>
               </div>
-
               <div className={styles.draftList}>
                 {drafts.length > 0 ? (
                   drafts.map((draft) => (
@@ -901,79 +914,109 @@ export function MerchantDashboard() {
                         <span className={styles.helperBadge}>{draft.status}</span>
                         <span className={styles.draftTime}>{draft.createdAt}</span>
                       </div>
-                      <strong className={styles.draftTitle}>
-                        {draft.targetCountry} / {draft.platform}
-                      </strong>
+                      <strong className={styles.draftTitle}>{draft.targetCountry} / {draft.platform}</strong>
                       <p className={styles.cardDescription}>{draft.message}</p>
                       <p className={styles.assetMeta}>{draft.contentId}</p>
-                      <div className={styles.actions}>
-                        <button type="button" onClick={() => void loadContentDetail(draft.contentId)} className={styles.ghostButton}>
-                          보기
-                        </button>
-                        <button type="button" onClick={() => void handleDeleteContent(draft.contentId)} className={styles.dangerButton}>
-                          삭제
-                        </button>
+                    </div>
+                  ))
+                ) : (
+                  <p className={styles.emptyState}>최근 생성 결과가 없습니다.</p>
+                )}
+              </div>
+            </article>
+            <article className={styles.panel}>
+              <div className={styles.panelHeader}>
+                <div>
+                  <p className={styles.cardLabel}>Publish Results</p>
+                  <h2 className={styles.panelTitle}>발행 카드 결과</h2>
+                </div>
+              </div>
+              <div className={styles.publishResultGrid}>
+                {publishResults.length > 0 ? (
+                  publishResults.slice(0, 6).map((result) => (
+                    <div key={result.publish_result_id} className={styles.publishResultCard}>
+                      {result.thumbnail_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={result.thumbnail_url} alt={result.title ?? result.publish_result_id} className={styles.publishResultImage} />
+                      ) : (
+                        <div className={styles.publishResultFallback}>NO THUMBNAIL</div>
+                      )}
+                      <div className={styles.publishResultBody}>
+                        <strong className={styles.assetName}>{result.title ?? result.publish_result_id}</strong>
+                        <p className={styles.assetMeta}>{result.status} · {result.channel}</p>
+                        <p className={styles.cardDescription}>{result.caption_preview ?? "캡션 미리보기가 없습니다."}</p>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className={styles.emptyState}>아직 생성된 draft가 없습니다.</p>
+                  <p className={styles.emptyState}>발행 결과가 없습니다.</p>
                 )}
               </div>
             </article>
-
-            <article className={styles.panel}>
-              <div className={styles.panelHeader}>
-                <div>
-                  <p className={styles.cardLabel}>Operations</p>
-                  <h2 className={styles.panelTitle}>점주 작업 현황</h2>
-                </div>
-              </div>
-              <div className={styles.summaryGrid}>
-                <span>작업 수: {jobs.length}</span>
-                <span>리포트 수: {reports.length}</span>
-                <span>발행 결과: {publishResults.length}</span>
-                <span>대기 콘텐츠: {pendingContents.filter((item) => item.status === "draft").length}</span>
-              </div>
-              <div className={styles.actions}>
-                <button type="button" onClick={handleGenerateReport} className={styles.primaryButton}>
-                  월간 리포트 생성
-                </button>
-              </div>
-              <div className={styles.notice}>{reportMessage}</div>
-            </article>
-
-            <article className={styles.panel}>
-              <div className={styles.panelHeader}>
-                <div>
-                  <p className={styles.cardLabel}>Published Examples</p>
-                  <h2 className={styles.panelTitle}>게시 예시와 썸네일</h2>
-                </div>
-              </div>
-              <div className={styles.draftList}>
-                {publishResults.length > 0 ? (
-                  publishResults.map((item) => (
-                    <a key={item.publish_result_id} href={item.external_url ?? "#"} className={styles.exampleCard} target="_blank" rel="noreferrer">
-                      {item.thumbnail_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={item.thumbnail_url} alt={item.title ?? item.publish_result_id} className={styles.exampleImage} />
-                      ) : null}
-                      <div className={styles.exampleBody}>
-                        <strong className={styles.draftTitle}>{item.title ?? item.publish_result_id}</strong>
-                        <p className={styles.cardDescription}>{item.caption_preview ?? item.channel}</p>
-                        <p className={styles.assetMeta}>{item.external_url ?? item.publish_result_id}</p>
-                      </div>
-                    </a>
-                  ))
-                ) : (
-                  <p className={styles.emptyState}>아직 게시 예시가 없습니다.</p>
-                )}
-              </div>
-            </article>
-          </aside>
-        </section>
+          </>
+        ) : null}
       </section>
     </main>
+  );
+}
+
+function titleForSection(section: MerchantDashboardSection) {
+  if (section === "compose") return "Draft 생성";
+  if (section === "content") return "콘텐츠 운영";
+  if (section === "overlay") return "오버레이 편집";
+  if (section === "reviews") return "리뷰 응대";
+  return "운영 현황";
+}
+
+function CompareColumn({
+  title,
+  assets,
+  emptyText,
+  selectedVariantAssetId,
+  onSelectVariant,
+}: {
+  title: string;
+  assets: ContentPreviewAsset[];
+  emptyText: string;
+  selectedVariantAssetId?: string;
+  onSelectVariant?: (assetId: string) => void;
+}) {
+  return (
+    <div className={styles.compareColumn}>
+      <div className={styles.compareHeader}>
+        <p className={styles.cardLabel}>{title}</p>
+      </div>
+      {assets.length > 0 ? (
+        <div className={styles.contentPreviewGrid}>
+          {assets.map((asset) => (
+            <div
+              key={asset.asset_id}
+              className={`${styles.contentPreviewCard} ${
+                selectedVariantAssetId && selectedVariantAssetId === asset.asset_id ? styles.contentPreviewCardSelected : ""
+              }`}
+            >
+              {asset.objectUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={asset.objectUrl} alt={asset.filename} className={styles.contentPreviewImage} />
+              ) : (
+                <div className={styles.contentPreviewFallback}>NO PREVIEW</div>
+              )}
+              <strong className={styles.assetName}>{asset.filename}</strong>
+              <p className={styles.assetMeta}>{asset.asset_id}</p>
+              {onSelectVariant ? (
+                <div className={styles.actions}>
+                  <button type="button" className={styles.ghostButton} onClick={() => onSelectVariant(asset.asset_id)}>
+                    {selectedVariantAssetId === asset.asset_id ? "선택됨" : "선택"}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className={styles.compareEmpty}>{emptyText}</div>
+      )}
+    </div>
   );
 }
 

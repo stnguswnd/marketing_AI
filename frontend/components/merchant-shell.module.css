@@ -1,0 +1,90 @@
+.layout {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  background:
+    radial-gradient(circle at top left, rgba(30, 120, 255, 0.12), transparent 24%),
+    linear-gradient(180deg, #f4f7fb 0%, #edf3f8 100%);
+}
+
+.sidebar {
+  padding: 28px 20px;
+  border-right: 1px solid #d8e0ea;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(12px);
+}
+
+.brand {
+  margin: 0 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #5c6b7d;
+}
+
+.title {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: #101828;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.navLink {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid #d8e0ea;
+  background: #ffffff;
+  color: #344054;
+  text-decoration: none;
+}
+
+.navLinkActive {
+  border-color: #175cd3;
+  background: #eff6ff;
+  box-shadow: 0 0 0 3px rgba(23, 92, 211, 0.12);
+}
+
+.navTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #101828;
+}
+
+.navDesc {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #667085;
+}
+
+.main {
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid #d8e0ea;
+  }
+}

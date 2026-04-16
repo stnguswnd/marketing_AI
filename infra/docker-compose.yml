@@ -29,6 +29,8 @@ services:
     build:
       context: ..
       dockerfile: infra/docker/backend.Dockerfile
+    env_file:
+      - ../.env
     command:
       [
         "sh",
@@ -40,20 +42,19 @@ services:
       APP_VERSION: 0.1.0
       APP_ENV: docker
       API_PREFIX: /api/v1
-      PUBLIC_API_BASE_URL: http://127.0.0.1:8000/api/v1
-      BACKEND_CORS_ORIGINS: http://127.0.0.1:3000,http://localhost:3000
+      PUBLIC_API_BASE_URL: http://127.0.0.1:18080/api/v1
+      BACKEND_CORS_ORIGINS: http://127.0.0.1:13000,http://localhost:13000
       DATABASE_URL: postgresql+psycopg://harness:harness@postgres:5432/harness
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
       ASSET_STORAGE_DIR: /tmp/marketing_ai_uploads
       WEBHOOK_SECRET: dev-webhook-secret
-      NANO_BANANA_API_KEY: replace-me
       BLOG_API_BASE_URL: https://blog.example.com/api
       BLOG_API_TOKEN: replace-me
       OBSERVABILITY_SLOW_REQUEST_MS: 1500
     ports:
-      - "8000:8000"
+      - "18080:8000"
     volumes:
       - ../backend/app:/workspace/backend/app
       - ../backend/scripts:/workspace/backend/scripts
@@ -68,21 +69,31 @@ services:
     build:
       context: ..
       dockerfile: infra/docker/backend.Dockerfile
-    command: ["python", "-m", "celery", "-A", "app.workers.celery_app", "worker", "--loglevel=info"]
+    env_file:
+      - ../.env
+    command:
+      [
+        "python",
+        "-m",
+        "celery",
+        "-A",
+        "app.workers.celery_app",
+        "worker",
+        "--loglevel=info",
+      ]
     environment:
       APP_NAME: Marketing AI Demo API
       APP_VERSION: 0.1.0
       APP_ENV: docker
       API_PREFIX: /api/v1
-      PUBLIC_API_BASE_URL: http://127.0.0.1:8000/api/v1
-      BACKEND_CORS_ORIGINS: http://127.0.0.1:3000,http://localhost:3000
+      PUBLIC_API_BASE_URL: http://127.0.0.1:18080/api/v1
+      BACKEND_CORS_ORIGINS: http://127.0.0.1:13000,http://localhost:13000
       DATABASE_URL: postgresql+psycopg://harness:harness@postgres:5432/harness
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
       ASSET_STORAGE_DIR: /tmp/marketing_ai_uploads
       WEBHOOK_SECRET: dev-webhook-secret
-      NANO_BANANA_API_KEY: replace-me
       BLOG_API_BASE_URL: https://blog.example.com/api
       BLOG_API_TOKEN: replace-me
       OBSERVABILITY_SLOW_REQUEST_MS: 1500
@@ -101,9 +112,9 @@ services:
       context: ..
       dockerfile: infra/docker/frontend.Dockerfile
     environment:
-      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000/api/v1
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:18080/api/v1
     ports:
-      - "3000:3000"
+      - "13000:3000"
     volumes:
       - ../frontend:/app
       - frontend_node_modules:/app/node_modules

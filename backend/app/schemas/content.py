@@ -36,6 +36,8 @@ class ContentGenerateResponse(BaseModel):
     approval_required: bool
     job_id: str
     message: str
+    image_variant_job_id: Optional[str] = None
+    variant_asset_ids: list[str] = Field(default_factory=list)
 
 
 class ContentDetailResponse(BaseModel):
@@ -54,6 +56,10 @@ class ContentDetailResponse(BaseModel):
     apply_image_variant: bool
     image_variant_provider: ImageVariantProvider
     image_variant_job_id: Optional[str] = None
+    selected_variant_asset_id: Optional[str] = None
+    overlay_headline: Optional[str] = None
+    overlay_subheadline: Optional[str] = None
+    overlay_cta: Optional[str] = None
     publish_job_id: Optional[str] = None
     latest_publish_result_id: Optional[str] = None
     publish_result_ids: list[str] = Field(default_factory=list)
@@ -78,6 +84,28 @@ class ContentPublishRequest(BaseModel):
     apply_image_variant: bool = False
     image_variant_provider: ImageVariantProvider = ImageVariantProvider.NONE
     source_asset_ids: list[str] = Field(default_factory=list, max_length=5)
+    selected_variant_asset_id: Optional[str] = None
+
+
+class ContentOverlayUpdateRequest(BaseModel):
+    selected_variant_asset_id: Optional[str] = None
+    overlay_headline: Optional[str] = Field(default=None, max_length=255)
+    overlay_subheadline: Optional[str] = Field(default=None, max_length=1000)
+    overlay_cta: Optional[str] = Field(default=None, max_length=255)
+
+
+class ContentImageRegenerateRequest(BaseModel):
+    source_asset_ids: list[str] = Field(default_factory=list, max_length=5)
+
+
+class ContentOverlayResponse(BaseModel):
+    content_id: str
+    selected_variant_asset_id: Optional[str] = None
+    overlay_headline: Optional[str] = None
+    overlay_subheadline: Optional[str] = None
+    overlay_cta: Optional[str] = None
+    image_variant_job_id: Optional[str] = None
+    variant_asset_ids: list[str] = Field(default_factory=list)
 
 
 class ContentStatusChangeResponse(BaseModel):
